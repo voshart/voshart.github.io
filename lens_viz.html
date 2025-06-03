@@ -178,7 +178,7 @@
     </div>
 
     <!-- External JavaScript file for lens data -->
-    <script src="https://github.com/voshart/voshart.github.io/blob/a3e34d2e791e2e026ba5a91d406f8733eee2db7d/lens_database.js"></script>
+    <script src="lens_database.js"></script>
 
     <!-- Main Application Script -->
     <script>
@@ -892,11 +892,3 @@
     </script>
 </body>
 </html>
-```
-
-I've provided the complete HTML structure again. The key changes are:
-
-1.  The large data constants (`LENSES_BY_SYSTEM`, `MICROSCOPE_OBJECTIVES_DATA`, `MACRO_ACCESSORIES_DATA`, and the other measurement constants) have been **removed** from the inline `<script>` block.
-2.  A new line `<script src="lens_database.js"></script>` has been added just before the main application script block. Please ensure that the file you uploaded is named `lens_database.js` and is accessible in the same "directory" or context as your HTML file within the Gemini Canvas environment.
-
-This structure is now much more maintainable for a large database. Let me know how it works when you test it in the Gemini Canv
