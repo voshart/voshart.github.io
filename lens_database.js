@@ -1,7 +1,7 @@
 // File: lens_database.js
 
 // --- Lens and Camera System Data ---
-const LENSES_BY_SYSTEM = {
+export const LENSES_BY_SYSTEM = {
     'sony_e_ff': {
         systemName: "Sony E (Full Frame)", flangeDistance: 18, sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 45,
         lenses: {
@@ -81,7 +81,7 @@ const LENSES_BY_SYSTEM = {
 };
 
 // --- Microscope Objective Data ---
-const MICROSCOPE_OBJECTIVES_DATA = {
+export const MICROSCOPE_OBJECTIVES_DATA = {
     'mo_4x_010_160_achro': {
         name: "4x NA 0.10 Achromat (DIN 160mm)", type: 'finite_microscope',
         M_obj: 4, NA: 0.10, standardFiniteTubeLength: 160,
@@ -127,7 +127,7 @@ const MICROSCOPE_OBJECTIVES_DATA = {
 };
 
 // --- Macro Accessory Data ---
-const MACRO_ACCESSORIES_DATA = {
+export const MACRO_ACCESSORIES_DATA = {
     'none': { name: "No Accessory", length: 0, type: 'none' },
     'et10mm': { name: "10mm Extension Tube", length: 10, type: 'tube' },
     'et12mm': { name: "12mm Extension Tube", length: 12, type: 'tube' },
@@ -145,16 +145,16 @@ const MACRO_ACCESSORIES_DATA = {
 };
 
 // --- Object Dimension Constants (mm) ---
-const QUARTER_DIAMETER_MM = 24.26;
-const RICE_LENGTH_MM = 6;
-const RICE_WIDTH_MM = 1.5;
-const BANANA_LENGTH_MM = 180;
-const BANANA_WIDTH_MM = 35;
-const TARGET_SQUARE_OUTER_MM = 1.0;
-const TARGET_SQUARE_INNER_UM = 1.0;
-const TARDIGRADE_LENGTH_MM = 0.4;
-const TARDIGRADE_WIDTH_MM = TARDIGRADE_LENGTH_MM * (200/160); // Based on tardigrade SVG viewBox aspect ratio
+export const QUARTER_DIAMETER_MM = 24.26;
+export const RICE_LENGTH_MM = 6;
+export const RICE_WIDTH_MM = 1.5;
+export const BANANA_LENGTH_MM = 180;
+export const BANANA_WIDTH_MM = 35;
+export const TARGET_SQUARE_OUTER_MM = 1.0;
+export const TARGET_SQUARE_INNER_UM = 1.0;
+export const TARDIGRADE_LENGTH_MM = 0.4;
+export const TARDIGRADE_WIDTH_MM = TARDIGRADE_LENGTH_MM * (200/160); // Based on tardigrade SVG viewBox aspect ratio
 
 // --- Practical Limit Constants ---
-const MIN_PRACTICAL_OBJECT_DISTANCE_PP = 5;
-const MIN_PRACTICAL_WORKING_DISTANCE = 1;
+export const MIN_PRACTICAL_OBJECT_DISTANCE_PP = 5;
+export const MIN_PRACTICAL_WORKING_DISTANCE = 1;

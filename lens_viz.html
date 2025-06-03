@@ -177,11 +177,25 @@
         </div>
     </div>
 
-    <!-- External JavaScript file for lens data -->
-    <script src="lens_database.js"></script>
-
     <!-- Main Application Script -->
-    <script>
+    <script type="module">
+        import {
+            LENSES_BY_SYSTEM,
+            MICROSCOPE_OBJECTIVES_DATA,
+            MACRO_ACCESSORIES_DATA,
+            QUARTER_DIAMETER_MM,
+            RICE_LENGTH_MM,
+            RICE_WIDTH_MM,
+            BANANA_LENGTH_MM,
+            BANANA_WIDTH_MM,
+            TARGET_SQUARE_OUTER_MM,
+            TARGET_SQUARE_INNER_UM,
+            TARDIGRADE_LENGTH_MM,
+            TARDIGRADE_WIDTH_MM,
+            MIN_PRACTICAL_OBJECT_DISTANCE_PP,
+            MIN_PRACTICAL_WORKING_DISTANCE
+        } from './lens_database.js';
+
         // --- Global Variable Declarations ---
         const systemSelect = document.getElementById('system-select');
         const lensSelect = document.getElementById('lens-select');
