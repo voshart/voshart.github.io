@@ -129,6 +129,7 @@
                         <div class="rice-image absolute bg-beige-200 border border-yellow-700 rounded-[40%/50%] transform z-[2]" id="rice-image" style="width:0; height:0; background-color: #f5f5dc; display:none;"></div>
                         <svg id="target-square-svg" class="absolute w-full h-full pointer-events-none z-[6]" width="0" height="0" style="display:none;">
                             <rect id="target-square-outer" x="0" y="0" width="0" height="0" fill="rgba(128,128,128,1)" />
+                            <rect id="target-square-inner" x="0" y="0" width="0" height="0" fill="white" />
                             <text id="target-square-text" x="50%" y="0" dominant-baseline="alphabetic" text-anchor="middle" font-size="10" fill="black" style="display:none; pointer-events:none;">1mm</text>
                         </svg>
                         <svg id="tardigrade-svg" class="absolute pointer-events-none z-[7]" width="0" height="0" viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:none;">
@@ -210,6 +211,7 @@
         const imageCircleElement = imageCircleSVG.querySelector('#mask-circle-inner');
         const targetSquareSVG = document.getElementById('target-square-svg');
         const targetSquareOuter = document.getElementById('target-square-outer');
+        const targetSquareInner = document.getElementById('target-square-inner');
         const targetSquareText = document.getElementById('target-square-text');
         const tardigradeSVG = document.getElementById('tardigrade-svg');
         const quarterImage = document.getElementById('quarter-image');
@@ -226,14 +228,6 @@
         let isMicroscopeObjectiveSelected = false;
 
         // --- Helper Functions ---
-
-        /**
-         * Parses a reversed lens magnification estimate string.
-         * Handles patterns like "~1.2:1 (at 50mm)" or "1.2:1".
-         * @param {string} magStr - The magnification string to parse.
-         * @param {number|null} targetFocalLength - Optional focal length to look for specific estimates.
-         * @returns {number|null} The parsed magnification ratio, or null if not found.
-         */
         function parseReversedMagEstimate(magStr, targetFocalLength = null) {
             if (!magStr || typeof magStr !== 'string') return null;
             if (targetFocalLength) {
@@ -246,11 +240,6 @@
             return null;
         }
 
-        /**
-         * Creates HTML for an inline information tooltip.
-         * @param {string} text - The text content for the tooltip.
-         * @returns {string} HTML string for the tooltip.
-         */
         function createInfoTooltip(text) {
             return `
                 <details class="inline-help relative inline-block ml-1 align-middle">
@@ -263,10 +252,6 @@
         }
 
         // --- Dropdown Population Functions ---
-
-        /**
-         * Populates the camera system dropdown.
-         */
         function populateSystemDropdown() {
             systemSelect.innerHTML = '<option value="">--Select Camera System--</option>';
             const sortedSystemKeys = Object.keys(LENSES_BY_SYSTEM).sort((a, b) => LENSES_BY_SYSTEM[a].systemName.localeCompare(LENSES_BY_SYSTEM[b].systemName));
@@ -287,10 +272,6 @@
             sensorResolutionSelect.value = "24"; // Default to 24MP
         }
 
-        /**
-         * Populates the lens/objective dropdown based on the selected camera system.
-         * @param {string} selectedSystemKey - The key of the selected camera system.
-         */
         function populateLensDropdown(selectedSystemKey) {
             lensSelect.innerHTML = '<option value="">--Select Lens/Objective--</option>';
             isMicroscopeObjectiveSelected = false;
@@ -336,9 +317,6 @@
             updateVisualization();
         }
 
-        /**
-         * Populates the macro accessory dropdown.
-         */
         function populateAccessoryDropdown() {
             accessorySelect.innerHTML = '';
             const sortedAccessories = Object.entries(MACRO_ACCESSORIES_DATA)
@@ -355,15 +333,6 @@
             accessorySelect.value = 'none';
         }
 
-        // --- Diagram Element Creation ---
-        /**
-         * Creates a styled div element for the section view diagram.
-         * @param {string} type - 'line', 'text-label', or 'block'.
-         * @param {string} textContent - Text for the element.
-         * @param {string} customClassString - Tailwind CSS classes.
-         * @param {number} height - Height in pixels.
-         * @returns {HTMLDivElement} The created diagram element.
-         */
         function createDiagramElement(type, textContent, customClassString, height) {
             const el = document.createElement('div');
             el.style.height = `${Math.max(type === 'line' ? 2 : (type === 'text-label' ? 12 : 10), height)}px`;
@@ -409,7 +378,6 @@
             return el;
         }
 
-        // --- Main Visualization Update Function ---
         function updateVisualization() {
             const selectedSystemKey = systemSelect.value;
             const selectedLensKey = lensSelect.value;
@@ -706,6 +674,7 @@
                 } else {
                     targetSquareSVG.style.display = 'block'; tardigradeSVG.style.display = 'none';
                     const outerSizePx = TARGET_SQUARE_OUTER_MM * currentMagnification * pxPerMmSensor;
+                    const innerSizePx = (TARGET_SQUARE_INNER_UM / 1000) * currentMagnification * pxPerMmSensor;
                     const outerX = ((sensorDisplayWidthPx - Math.max(1, outerSizePx)) / 2);
                     const outerY = ((sensorDisplayHeightPx - Math.max(1, outerSizePx)) / 2);
                     targetSquareSVG.setAttribute('width', sensorDisplayWidthPx);
@@ -714,6 +683,10 @@
                     targetSquareOuter.setAttribute('height', Math.max(1, outerSizePx).toFixed(2));
                     targetSquareOuter.setAttribute('x', outerX.toFixed(2));
                     targetSquareOuter.setAttribute('y', outerY.toFixed(2));
+                    targetSquareInner.setAttribute('width', Math.max(0.5, innerSizePx).toFixed(2));
+                    targetSquareInner.setAttribute('height', Math.max(0.5, innerSizePx).toFixed(2));
+                    targetSquareInner.setAttribute('x', ((sensorDisplayWidthPx - Math.max(0.5, innerSizePx)) / 2).toFixed(2));
+                    targetSquareInner.setAttribute('y', ((sensorDisplayHeightPx - Math.max(0.5, innerSizePx)) / 2).toFixed(2));
                     if (targetSquareText) {
                         const fontSizeFor1mmText = Math.min(10, Math.max(6, Math.min(outerSizePx, sensorDisplayWidthPx) / 8));
                         targetSquareText.setAttribute('font-size', fontSizeFor1mmText.toFixed(1));
@@ -741,7 +714,7 @@
                 bananaImageSVG.style.width = `${Math.max(1, bSVGNatW * svgSF)}px`; bananaImageSVG.style.height = `${Math.max(1, bSVGNatH * svgSF)}px`;
             }
 
-            let sysDispName = currentSystemData.systemName.replace(/\s*\(.*\)/, '');
+            let sysDispName = currentSystemData.systemName.replace(/\s*\(.*\)/, ''); // Escaped parentheses
             let imageSizesHTML = "";
             const formatProjectedSize = (value, unit = 'mm', fixed = 2) => {
                 if ((!isMicroscopeObjectiveSelected && focusIsImpractical) || !isFinite(value)) { return 'N/A'; }
@@ -757,6 +730,7 @@
 
             if (isMicroscopeObjectiveSelected) {
                 const outerProjected = TARGET_SQUARE_OUTER_MM * currentMagnification;
+                const innerProjected = (TARGET_SQUARE_INNER_UM / 1000) * currentMagnification;
                 const tardigradeLengthProjected = TARDIGRADE_LENGTH_MM * currentMagnification;
                 const tardigradeWidthProjected = TARDIGRADE_WIDTH_MM * currentMagnification;
                 const riceLengthProjected = RICE_LENGTH_MM * currentMagnification;
@@ -769,6 +743,7 @@
                 } else {
                     imageSizesHTML = `
                         <div class="info-line flex justify-between py-1"><span>1mm Target on Sensor:</span> <span class="font-medium">${formatProjectedArea(outerProjected, outerProjected, 'mm', 'mm', 2, 2)}</span></div>
+                        <div class="info-line flex justify-between py-1"><span>1µm Target (center) on Sensor:</span> <span class="font-medium">${formatProjectedArea(innerProjected * 1000, innerProjected * 1000, 'µm', 'µm', 1, 1)}</span></div>
                         <div class="info-line flex justify-between py-1"><span>Rice Grain Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(riceLengthProjected, riceWidthProjected, 'mm', 'mm', 2, 2)}</span></div>
                     `;
                 }
@@ -854,7 +829,7 @@
                     objectiveSpecificNotesHTML = `<div class="mt-2 p-2 text-xs bg-sky-50 border border-sky-200 rounded-md text-sky-700">
                         <strong>Objective Details:</strong> Type: ${currentLensData.isPlan ? 'Plan Achromat' : 'Standard Achromat'}.
                         Field Flatness: ${currentLensData.isPlan ? 'Good across image circle.' : 'Significant field curvature expected.'}
-                        Theoretical Resolution (central, $\\lambda$=550nm): ${(currentLensData.theoretical_lp_mm_sensor || 0).toFixed(1)} lp/mm on sensor.
+                        Theoretical Resolution (central, $\lambda$=550nm): ${(currentLensData.theoretical_lp_mm_sensor || 0).toFixed(1)} lp/mm on sensor.
                         (Source: ${currentLensData.sourceRef || 'Generic Data'})
                         Some residual chromatic aberration may be present.`;
                     if (focusIsImpractical) {
@@ -869,7 +844,7 @@
                     <div class="info-line flex justify-between items-center py-1"><span>Approx. Total DOF: ${createInfoTooltip("Approximate total depth perceived as acceptably sharp at the subject. DOF in macro is typically very shallow.")}</span> <strong class="text-indigo-700">${dof_mm > 0 ? dof_mm.toFixed(3) + ' mm' : 'N/A (e.g. M=0)'}</strong></div>
                     <div class="info-line flex justify-between items-center py-1 text-xs text-slate-600"><span>CoC Used: ${createInfoTooltip("Circle of Confusion: The maximum blur spot size on the sensor still perceived as sharp. Calculated here as 2x pixel pitch.")}</span> <span>${coc_mm > 0 ? coc_mm.toExponential(2) : 'N/A'} mm</span></div>
                     <h4 class="font-semibold text-slate-700 mt-3 mb-1 py-1 border-t border-slate-200 pt-2">Key Optical Factors:</h4>
-                    <div class="info-line flex justify-between items-center py-1 pl-2"><span>${isMicroscopeObjectiveSelected ? 'Objective Resolution (Theoretical)' : 'Lens Resolution (Estimated)'}: ${createInfoTooltip(isMicroscopeObjectiveSelected ? "Theoretical central resolving power of the objective projected onto the sensor (at $\\lambda$=550nm)." : "An illustrative estimate of the lens's own resolving power in lp/mm. 'N/A' if specific data is unavailable or not applicable. Actual lens performance varies.")}</span> <span class="font-medium">${lensResForCalc !== null ? lensResForCalc.toFixed(1) : 'N/A'} lp/mm</span></div>
+                    <div class="info-line flex justify-between items-center py-1 pl-2"><span>${isMicroscopeObjectiveSelected ? 'Objective Resolution (Theoretical)' : 'Lens Resolution (Estimated)'}: ${createInfoTooltip(isMicroscopeObjectiveSelected ? "Theoretical central resolving power of the objective projected onto the sensor (at $\lambda$=550nm)." : "An illustrative estimate of the lens's own resolving power in lp/mm. 'N/A' if specific data is unavailable or not applicable. Actual lens performance varies.")}</span> <span class="font-medium">${lensResForCalc !== null ? lensResForCalc.toFixed(1) : 'N/A'} lp/mm</span></div>
                     <div class="info-line flex justify-between items-center py-1 pl-2"><span>Diffraction Limit (at f/${effApertureText}): ${createInfoTooltip("The theoretical resolution limit imposed by diffraction due to the effective aperture (Shooting Aperture × (1 + Magnification) for camera lenses, or M_obj / (2*NA) for microscope objectives). Smaller effective apertures (larger f-numbers) lead to more diffraction.")}</span> <span class="font-medium">${diffractionLimit_lp_mm > 0 ? diffractionLimit_lp_mm.toFixed(1) : 'N/A'} lp/mm</span></div>
                     <div class="info-line flex justify-between items-center py-1 pl-2"><span>Sensor Limit (${pixelPitch_microns.toFixed(1)}µm pixels): ${createInfoTooltip("The theoretical resolution limit of the sensor based on its pixel density (Nyquist frequency). Smaller pixels (higher density) allow for higher potential resolution.")}</span> <span class="font-medium">${sensorLimit_lp_mm > 0 ? sensorLimit_lp_mm.toFixed(1) : 'N/A'} lp/mm</span></div>
                     <div class="info-line flex justify-between items-center py-1"><span>Achievable Magnification: ${createInfoTooltip("The current magnification of the subject on the sensor with the selected lens/objective and accessories.")}</span> ${achMagText}</div>
