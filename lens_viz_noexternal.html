@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lens Visualization Tool (Tailwind CSS with DOF, WD & Microscope Objectives)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Hide number input spinners */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* Styling for details/summary tooltip */
+        details.inline-help summary::-webkit-details-marker {
+            display: none;
+        }
+        details.inline-help summary {
+            list-style-type: none; /* For Firefox */
+        }
+
+        /* Mobile Tooltip Styling (Bottom Sheet) */
+        @media (max-width: 639px) { /* Targets screens smaller than Tailwind's 'sm' breakpoint */
+            details[open] > .help-text-dropdown {
+                position: fixed !important;
+                bottom: 1rem !important;
+                left: 1rem !important;
+                right: 1rem !important;
+                width: auto !important; /* Let padding define width relative to viewport edges */
+                max-width: none !important;
+                min-width: 0 !important;
+                transform: none !important;
+                top: auto !important;
+                margin-top: 0 !important;
+                border-radius: 0.5rem !important;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.15) !important;
+                padding: 1rem !important;
+                z-index: 50 !important;
+                background-color: white !important;
+                border-top: 1px solid #e5e7eb !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-4 md:p-6 flex flex-col items-center min-h-screen">
+
+    <div class="bg-white p-5 md:p-8 rounded-xl shadow-2xl w-full max-w-6xl">
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900 text-center mb-6 md:mb-8">Lens Magnification, DOF & WD Visualizer</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+            <div class="control-group">
+                <label for="system-select" class="block text-sm font-medium text-slate-700 mb-1">Camera System:</label>
+                <select id="system-select" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm"></select>
+            </div>
+            <div class="control-group">
+                <label for="lens-select" class="block text-sm font-medium text-slate-700 mb-1">Lens / Objective:</label>
+                <select id="lens-select" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm"></select>
+            </div>
+            <div class="control-group">
+                <label for="accessory-select" class="block text-sm font-medium text-slate-700 mb-1">Macro Accessory (Camera Lenses Only):</label>
+                <select id="accessory-select" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm"></select>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-6 md:gap-8">
+            <div class="left-panel lg:w-2/5 flex flex-col items-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-700 mb-3 w-full text-center border-b border-slate-300 pb-2">Section View</h2>
+                <div id="total-distance-text-display" class="text-xs font-semibold text-slate-900 text-center mb-3 p-2 bg-slate-200 border border-slate-300 rounded-md w-full max-w-xs" style="display:none;"></div>
+                <div class="section-view-stack w-full min-h-[380px] bg-white border border-slate-300 rounded-lg p-2 flex flex-col items-center relative overflow-hidden" id="section-view-diagram">
+                    </div>
+            </div>
+
+            <div class="right-panel lg:w-3/5 flex flex-col items-center p-4 bg-slate-50 rounded-lg border border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-700 mb-3 w-full text-center border-b border-slate-300 pb-2">Reproduction, Resolution, DOF & WD</h2>
+
+                <div class="w-full max-w-md space-y-4">
+                    <div class="consolidated-info-display p-3 bg-white border border-slate-200 rounded-lg shadow-sm text-xs" id="setup-details-info">
+                        </div>
+
+                    <div class="sensor-simulation-container w-full max-w-sm mx-auto bg-slate-300 border-2 border-slate-500 rounded-md relative flex justify-center items-center overflow-hidden aspect-[3/2]" id="sensor-simulation-container">
+                        <div id="magnification-display-overlay" class="absolute top-1 right-1 bg-black bg-opacity-60 text-white px-2 py-1 rounded-sm text-xs font-bold z-10" style="display:none;"></div>
+                        <svg id="image-circle-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-[5]" style="display: none;">
+                            <defs>
+                                <mask id="imageCircleMask">
+                                    <rect id="mask-rect-outer" width="100%" height="100%" fill="white"/>
+                                    <circle id="mask-circle-inner" cx="50%" cy="50%" r="0" fill="black"/>
+                                </mask>
+                            </defs>
+                            <rect id="vignette-rect-visible" width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#imageCircleMask)"/>
+                        </svg>
+                        <svg id="banana-image-svg" class="absolute z-[1]" width="0" height="0" viewBox="0 0 767 430" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+                            <g><g><path d="M 36.00 0.00 C 38.29,0.25 42.37,0.37 44.00,2.00 C 49.94,7.94 59.06,18.13 62.00,26.00 C 67.92,41.85 69.14,69.13 75.00,85.00 C 78.80,95.27 87.62,110.95 96.00,118.00 C 132.33,148.58 193.62,191.45 233.00,218.00 C 242.76,224.58 259.85,232.21 271.00,236.00 C 286.30,241.21 310.93,248.31 327.00,250.00 C 351.23,252.54 389.80,253.82 414.00,251.00 C 440.58,247.90 482.15,238.92 507.00,229.00 C 558.99,208.24 638.48,169.92 687.00,142.00 C 698.51,135.38 707.56,113.74 719.00,107.00 C 724.81,103.58 736.94,106.04 743.00,109.00 C 750.83,112.83 761.30,122.65 766.00,130.00 C 768.26,133.54 767.58,141.11 766.00,145.00 C 763.74,150.55 755.31,156.47 753.00,162.00 C 741.78,188.89 730.45,233.66 718.00,260.00 C 710.96,274.89 695.09,295.82 684.00,308.00 C 672.25,320.92 651.26,338.92 637.00,349.00 C 620.60,360.58 593.10,376.32 575.00,385.00 C 558.54,392.89 531.48,402.75 514.00,408.00 C 495.00,413.70 464.55,420.64 445.00,424.00 C 430.31,426.53 406.90,428.79 392.00,429.00 C 366.79,429.35 327.06,428.77 302.00,426.00 C 283.77,423.99 255.55,417.34 238.00,412.00 C 220.44,406.66 192.76,397.40 177.00,388.00 C 147.37,370.33 103.94,337.55 77.00,316.00 C 68.79,309.43 58.10,296.56 52.00,288.00 C 46.26,279.94 38.48,266.27 35.00,257.00 C 30.85,245.94 25.26,227.81 25.00,216.00 C 24.41,189.33 32.79,147.66 32.00,121.00 C 31.66,109.39 25.18,91.84 21.00,81.00 C 16.18,68.50 4.52,50.61 0.00,38.00 C -0.96,35.31 0.04,30.07 2.00,28.00 C 10.20,19.33 25.78,8.59 35.00,1.00 C 35.31,0.75 35.61,-0.04 36.00,0.00 Z"
+                            fill="#FFDB58" stroke="#D1B000" stroke-width="10"/> </g></g>
+                        </svg>
+                        <div class="quarter-image absolute bg-gray-400 border border-gray-600 rounded-full flex justify-center items-center z-[1]" id="quarter-image" style="width:0; height:0; display:none;">
+                            </div>
+                        <div class="rice-image absolute bg-beige-200 border border-yellow-700 rounded-[40%/50%] transform z-[2]" id="rice-image" style="width:0; height:0; background-color: #f5f5dc; display:none;"></div>
+                        <svg id="target-square-svg" class="absolute w-full h-full pointer-events-none z-[6]" width="0" height="0" style="display:none;">
+                            <rect id="target-square-outer" x="0" y="0" width="0" height="0" fill="rgba(128,128,128,1)" />
+                            <rect id="target-square-inner" x="0" y="0" width="0" height="0" fill="white" />
+                            <text id="target-square-text" x="50%" y="0" dominant-baseline="alphabetic" text-anchor="middle" font-size="10" fill="black" style="display:none; pointer-events:none;">1mm</text>
+                        </svg>
+                        <svg id="tardigrade-svg" class="absolute pointer-events-none z-[7]" width="0" height="0" viewBox="0 0 200 160" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="display:none;">
+                            <g id="g-main-transform" transform="translate(3 6) translate(100.00 80.00) scale(1.05) translate(-100.00 -80.00)">
+                                <g id="g-path-group" >
+                                    <path d="M 126.00 31.00 L 133.00 31.00 L 135.00 33.00 L 147.00 32.00 L 165.00 37.00 L 169.00 40.00 L 171.00 50.00 L 175.00 53.00 L 175.00 60.00 L 170.00 68.00 L 166.00 72.00 L 161.00 73.00 L 155.00 82.00 L 144.00 87.00 L 139.00 100.00 L 142.00 109.00 L 140.00 111.00 L 141.00 106.00 L 138.00 108.00 L 134.00 102.00 L 130.00 101.00 L 126.00 107.00 L 127.00 101.00 L 124.00 98.00 L 121.00 104.00 L 123.00 100.00 L 119.00 96.00 L 117.00 98.00 L 119.00 113.00 L 117.00 108.00 L 116.00 112.00 L 114.00 108.00 L 113.00 110.00 L 99.00 99.00 L 93.00 101.00 L 90.00 112.00 L 93.00 118.00 L 92.00 122.00 L 88.00 115.00 L 82.00 119.00 L 82.00 116.00 L 77.00 111.00 L 68.00 107.00 L 64.00 107.00 L 55.00 115.00 L 57.00 108.00 L 54.00 106.00 L 50.00 109.00 L 45.00 119.00 L 48.00 126.00 L 43.00 123.00 L 47.00 128.00 L 41.00 124.00 L 41.00 130.00 L 38.00 114.00 L 32.00 118.00 L 32.00 123.00 L 35.00 125.00 L 32.00 125.00 L 30.00 115.00 L 27.00 117.00 L 26.00 124.00 L 26.00 120.00 L 24.00 120.00 L 25.00 115.00 L 21.00 120.00 L 21.00 125.00 L 20.00 123.00 L 21.00 118.00 L 26.00 112.00 L 19.00 94.00 L 20.00 87.00 L 24.00 75.00 L 37.00 60.00 L 49.00 51.00 L 67.00 42.00 L 73.00 42.00 L 94.00 35.00 L 114.00 35.00 L 125.00 32.00 Z"
+                                    fill="#A2B96A" stroke="black" stroke-width="3" stroke-linejoin="round"/>
+                                    <polyline points="26.83,107.37 34.51,103.53 38.67,109.93 41.22,113.12 47.30,112.81" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="53.05,101.61 48.58,91.06 60.41,88.83 66.80,90.74" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="76.04,109.40 83.05,102.09 93.10,101.48" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="75.13,59.46 69.34,77.12 72.39,84.74 80.61,93.26 92.79,97.53 95.23,99.96 98.88,93.26 103.14,86.26 100.10,78.95 97.97,74.38 94.92,72.86 83.05,77.43 81.52,82.30" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="111.32,46.80 109.80,64.46 109.50,71.77 114.67,79.08 119.55,90.96" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="133.86,88.83 141.77,77.56 138.42,68.42 133.55,58.68 133.25,53.50 131.12,51.37 136.60,45.59" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="174.64,59.40 167.94,60.32 167.03,50.57 170.37,52.40" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="163.07,72.19 153.63,60.01 151.80,46.62" fill="none" stroke="black" stroke-width="1.5"/>
+                                    <line x1="101.93" y1="98.82" x2="113.50" y2="95.78" stroke="black" stroke-width="1.5"/>
+                                    <polyline points="56.25,102.47 63.56,104.91 71.48,97.60" fill="none" stroke="black" stroke-width="1.5"/>
+                                </g>
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="consolidated-info-display p-3 bg-white border border-slate-200 rounded-lg shadow-sm text-xs" id="simulation-results-info">
+                        </div>
+
+                    <div class="resolution-specific-controls p-3 bg-white border border-slate-200 rounded-lg shadow-sm space-y-3">
+                        <div class="control-group">
+                            <label for="sensor-resolution-select" class="block text-sm font-medium text-slate-700 mb-1">Sensor Resolution (MP):</label>
+                            <select id="sensor-resolution-select" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm"></select>
+                        </div>
+                        <div class="control-group">
+                            <label for="shooting-aperture-input" class="block text-sm font-medium text-slate-700 mb-1">Shooting Aperture (f-number):</label>
+                            <input type="number" id="shooting-aperture-input" value="8.0" step="0.1" min="0.7" max="90" class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out text-sm">
+                        </div>
+                    </div>
+                    <div class="consolidated-info-display p-3 bg-white border border-slate-200 rounded-lg shadow-sm text-xs" id="resolution-details-info">
+                        </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // Constants for object dimensions (mm)
+    const QUARTER_DIAMETER_MM = 24.26;
+    const RICE_LENGTH_MM = 6;
+    const RICE_WIDTH_MM = 1.5;
+    const BANANA_LENGTH_MM = 180;
+    const BANANA_WIDTH_MM = 35; // Approx width at widest point of SVG banana
+    const TARGET_SQUARE_OUTER_MM = 1.0; // 1mm square target
+    const TARGET_SQUARE_INNER_UM = 1.0; // 1µm inner detail for simulation
+    const TARDIGRADE_LENGTH_MM = 0.4; // Average tardigrade length (this will be its vertical dimension on screen)
+    const TARDIGRADE_WIDTH_MM = TARDIGRADE_LENGTH_MM * (200/160); // Tardigrade width, based on SVG viewBox aspect ratio (200 wide / 160 tall)
+
+
+    const MIN_PRACTICAL_OBJECT_DISTANCE_PP = 5; // Minimum object distance from principal point in mm to be considered 'practical' for focusing
+    const MIN_PRACTICAL_WORKING_DISTANCE = 1; // Minimum working distance in mm to be considered 'practical'
+
+    // Lens and accessory data
+    const LENSES_BY_SYSTEM = {
+        'sony_e_ff': {
+            systemName: "Sony E (Full Frame)", flangeDistance: 18, sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 45,
+            lenses: {
+                'sony_fe_90mm_f2_8_macro_g_oss': { name: "Sony FE 90mm f/2.8 Macro G OSS", f: 90, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 130.5 - 18, MFD: 280, d_P2_front_mm: (90*(1+1/1)) - 149.5, reversedMagEstimateManual: "~0.6:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sigma_70mm_f2_8_dg_macro_art_se': { name: "Sigma 70mm f/2.8 DG Macro Art (Sony E)", f: 70, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 105.8, MFD: 258, d_P2_front_mm: (70*(1+1/1)) - 126.55, reversedMagEstimateManual: "~0.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sigma_105mm_f2_8_dg_dn_macro_art_se': { name: "Sigma 105mm F2.8 DG DN Macro Art (Sony E)", f: 105, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 133.6, MFD: 295, d_P2_front_mm: (105*(1+1/1)) - 141, reversedMagEstimateManual: "~0.5:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_100mm_f2_8_2x_macro_sony_fe': { name: "Laowa 100mm f/2.8 2x Ultra Macro APO (Sony FE)", f: 100, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 2.0, PL: 155, MFD: 247, d_P2_front_mm: (100*(1+1/2.0)) - 80, reversedMagEstimateManual: "~0.5:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Good" },
+                'sony_fe_50mm_f2_8_macro': { name: "Sony FE 50mm f/2.8 Macro", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 71, MFD: 160, d_P2_front_mm: (50*(1+1/1)) - 36, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_fe_20mm_f1_8_g_ext_poc': { name: "Sony FE 20mm f/1.8 G", f: 20, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.2, PL: 84.7, MFD: 190, d_P2_front_mm: null, reversedMagEstimateManual: "~3.2:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_fe_40mm_f2_5_g_ext_poc': { name: "Sony FE 40mm f/2.5 G", f: 40, f_nominal_aperture: 2.5, lensResolution_lp_mm: null, NM: 0.2, PL: 45, MFD: 280, d_P2_front_mm: null, reversedMagEstimateManual: "~1.5:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_fe_55mm_f1_8_za': { name: "Sony Sonnar T* FE 55mm f/1.8 ZA", f: 55, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.14, PL: 70.5, MFD: 500, d_P2_front_mm: null, reversedMagEstimateManual: "~1.0:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_fe_28mm_f2': { name: "Sony FE 28mm f/2", f: 28, f_nominal_aperture: 2.0, lensResolution_lp_mm: null, NM: 0.13, PL: 64, MFD: 290, d_P2_front_mm: null, reversedMagEstimateManual: "~2.4:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_fe_12_24mm_f4_g': { name: "Sony FE 12-24mm f/4 G", f: 12, f_nominal_aperture: 4.0, lensResolution_lp_mm: null, NM: 0.14, PL: 117.4, MFD: 280, d_P2_front_mm: null, reversedMagEstimateManual: "~4.5:1 (at 12mm), ~2.0:1 (at 24mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'sony_e_apsc': {
+            systemName: "Sony E (APS-C)", flangeDistance: 18, sensorWidth: 23.5, sensorHeight: 15.6, typicalMegapixels: 26,
+            lenses: {
+                'sony_e_30mm_f3_5_macro': { name: "Sony E 30mm F3.5 Macro", f: 30, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 1.0, PL: 55.63, MFD: 95, d_P2_front_mm: (30*(1+1/1)) - 20.4, reversedMagEstimateManual: "~2.2:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_65mm_f2_8_2x_ultra_macro_apsc_sony_e': { name: "Laowa 65mm f/2.8 2x Ultra Macro APO (Sony E)", f: 65, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 2.0, PL: 100, MFD: 170, d_P2_front_mm: (65*(1+1/2)) - 60, reversedMagEstimateManual: "~0.9:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Limited" },
+                'zeiss_touit_50mm_f2_8m_sony_e': { name: "Zeiss Touit 50mm f/2.8M (Sony E)", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 91, MFD: 240, d_P2_front_mm: (50*(1+1/1)) - 60, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sigma_56mm_f1_4_dc_dn_c_sony_e': { name: "Sigma 56mm f/1.4 DC DN Contemporary (Sony E)", f: 56, f_nominal_aperture: 1.4, lensResolution_lp_mm: null, NM: 0.14, PL: 59.5, MFD: 500, d_P2_front_mm: null, reversedMagEstimateManual: "~1.0:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_e_16_55mm_f2_8_g': { name: "Sony E 16-55mm f/2.8 G", f: 16, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.2, PL: 100, MFD: 330, d_P2_front_mm: null, reversedMagEstimateManual: "~3.8:1 (at 16mm), ~1.0:1 (at 55mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_e_16mm_f2_8_pancake_ext_poc': { name: "Sony E 16mm f/2.8", f: 16, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.08, PL: 22.5, MFD: 240, d_P2_front_mm: null, reversedMagEstimateManual: "~3.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sony_e_11mm_f1_8_ext_poc': { name: "Sony E 11mm f/1.8", f: 11, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.13, PL: 57.5, MFD: 150, d_P2_front_mm: null, reversedMagEstimateManual: "~5:1 or more", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+         'nikon_z_ff': {
+            systemName: "Nikon Z (Full Frame)", flangeDistance: 16, sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 45,
+            lenses: {
+                'nikon_z_mc_105mm_f2_8_vr_s': { name: "Nikon NIKKOR Z MC 105mm f/2.8 VR S", f: 105, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 140, MFD: 290, d_P2_front_mm: (105*(1+1/1)) - 150, reversedMagEstimateManual: "~0.5:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_mc_50mm_f2_8': { name: "Nikon NIKKOR Z MC 50mm f/2.8", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 66, MFD: 160, d_P2_front_mm: (50*(1+1/1)) - 56, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_100mm_f2_8_2x_macro_nikon_z': { name: "Laowa 100mm f/2.8 2X Ultra Macro APO (Nikon Z)", f: 100, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 2.0, PL: 155, MFD: 247, d_P2_front_mm: (100*(1+1/2))-80, reversedMagEstimateManual: "~0.5:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Good" },
+                'nikon_z_50mm_f1_8_s': { name: "Nikon NIKKOR Z 50mm f/1.8 S", f: 50, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.15, PL: 86.5, MFD: 400, d_P2_front_mm: null, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_85mm_f1_8_s': { name: "Nikon NIKKOR Z 85mm f/1.8 S", f: 85, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.12, PL: 99, MFD: 800, d_P2_front_mm: null, reversedMagEstimateManual: "~0.6:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_20mm_f1_8_s_ext_poc': { name: "Nikon NIKKOR Z 20mm f/1.8 S", f: 20, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.19, PL: 108.5, MFD: 200, d_P2_front_mm: null, reversedMagEstimateManual: "~3.2:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_40mm_f2_ext_poc': { name: "Nikon NIKKOR Z 40mm f/2", f: 40, f_nominal_aperture: 2.0, lensResolution_lp_mm: null, NM: 0.17, PL: 45.5, MFD: 290, d_P2_front_mm: null, reversedMagEstimateManual: "~1.5:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_24_70mm_f4_s': { name: "Nikon NIKKOR Z 24-70mm f/4 S", f: 24, f_nominal_aperture: 4.0, lensResolution_lp_mm: null, NM: 0.3, PL: 88.5, MFD: 300, d_P2_front_mm: null, reversedMagEstimateManual: "~2.5:1 (at 24mm), ~0.8:1 (at 70mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'nikon_z_apsc': {
+            systemName: "Nikon Z (APS-C)", flangeDistance: 16, sensorWidth: 23.5, sensorHeight: 15.6, typicalMegapixels: 21,
+            lenses: {
+                'nikon_z_dx_24mm_f1_7': { name: "Nikon NIKKOR Z DX 24mm f/1.7", f: 24, f_nominal_aperture: 1.7, lensResolution_lp_mm: null, NM: 0.19, PL: 40, MFD: 180, d_P2_front_mm: (24*(1+1/0.19)) - 119.3, reversedMagEstimateManual: "~2.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'viltrox_af_25mm_f1_7_z_dx': { name: "Viltrox AF 25mm f/1.7 Z (Nikon DX)", f: 25, f_nominal_aperture: 1.7, lensResolution_lp_mm: null, NM: 0.11, PL: 56.4, MFD: 300, d_P2_front_mm: null, reversedMagEstimateManual: "~2.6:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_dx_18_140mm_f3_5_6_3_vr': { name: "Nikon NIKKOR Z DX 18-140mm f/3.5-6.3 VR", f: 18, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 0.33, PL: 90, MFD: 200, d_P2_front_mm: null, reversedMagEstimateManual: "~3.5:1 (at 18mm), <1:1 (at 140mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_mc_50mm_f2_8_on_dx': { name: "Nikon NIKKOR Z MC 50mm f/2.8 (on DX)", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 66, MFD: 160, d_P2_front_mm: (50*(1+1/1)) - 56, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_65mm_f2_8_2x_ultra_macro_apsc_nikon_z': { name: "Laowa 65mm f/2.8 2x Ultra Macro APO (Nikon Z)", f: 65, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 2.0, PL: 100, MFD: 170, d_P2_front_mm: (65*(1+1/2)) - 60, reversedMagEstimateManual: "~0.9:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Limited" },
+                'nikon_z_dx_16_50mm_f3_5_6_3_vr_ext_poc': { name: "Nikon NIKKOR Z DX 16-50mm f/3.5-6.3 VR", f: 16, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 0.2, PL: 32, MFD: 200, d_P2_front_mm: null, reversedMagEstimateManual: "~3.8:1 (at 16mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'nikon_z_dx_24mm_f1_7_ext_poc': { name: "Nikon NIKKOR Z DX 24mm f/1.7", f: 24, f_nominal_aperture: 1.7, lensResolution_lp_mm: null, NM: 0.19, PL: 40, MFD: 180, d_P2_front_mm: (24*(1+1/0.19)) - 119.3, reversedMagEstimateManual: "~2.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'canon_rf_ff': {
+            systemName: "Canon RF (Full Frame)", flangeDistance: 20, sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 45,
+            lenses: {
+                'canon_rf_100mm_f2_8l_macro_is_usm': { name: "Canon RF 100mm F2.8L Macro IS USM", f: 100, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.4, PL: 148, MFD: 260, d_P2_front_mm: (100 * (1 + 1/1.4)) - 85, reversedMagEstimateManual: "~0.5:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rf_85mm_f2_macro_is_stm': { name: "Canon RF 85mm F2 Macro IS STM", f: 85, f_nominal_aperture: 2.0, lensResolution_lp_mm: null, NM: 0.5, PL: 90.5, MFD: 350, d_P2_front_mm: (85*(1+1/0.5)) - 231.7, reversedMagEstimateManual: "~0.6:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rf_35mm_f1_8_macro_is_stm': { name: "Canon RF 35mm F1.8 Macro IS STM", f: 35, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.5, PL: 62.8, MFD: 170, d_P2_front_mm: (35*(1+1/0.5)) - 89.7, reversedMagEstimateManual: "~1.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_85mm_f5_6_2x_macro_canon_rf': { name: "Laowa 85mm f/5.6 2x Ultra Macro APO (Canon RF)", f: 85, f_nominal_aperture: 5.6, lensResolution_lp_mm: null, NM: 2.0, PL: 81, MFD: 163, d_P2_front_mm: (85*(1+1/2)) - 60, reversedMagEstimateManual: "~0.6:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Good" },
+                'canon_rf_50mm_f1_2l_usm': { name: "Canon RF 50mm F1.2L USM", f: 50, f_nominal_aperture: 1.2, lensResolution_lp_mm: null, NM: 0.19, PL: 108.0, MFD: 400, d_P2_front_mm: null, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rf_16mm_f2_8_stm_ext_poc': { name: "Canon RF 16mm f/2.8 STM", f: 16, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.26, PL: 40.1, MFD: 130, d_P2_front_mm: null, reversedMagEstimateManual: "~3.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rf_28mm_f2_8_stm_pancake_ext_poc': { name: "Canon RF 28mm f/2.8 STM", f: 28, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.17, PL: 24.7, MFD: 230, d_P2_front_mm: null, reversedMagEstimateManual: "~2.4:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'canon_rf_apsc': {
+            systemName: "Canon RF (APS-C)", flangeDistance: 20, sensorWidth: 22.3, sensorHeight: 14.9, typicalMegapixels: 24,
+            lenses: {
+                'canon_rfs_18_150mm_f3_5_6_3_is_stm': { name: "Canon RF-S 18-150mm f/3.5-6.3 IS STM", f: 18, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 0.59, PL: 127, MFD: 120, d_P2_front_mm: (35*(1+1/0.59)) - 15, reversedMagEstimateManual: "~3.5:1 (at 18mm), <1:1 (at 150mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'sigma_18_50mm_f2_8_dc_dn_c_rfs': { name: "Sigma 18-50mm F2.8 DC DN Contemporary (RF-S)", f: 18, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.357, PL: 74.5, MFD: 121, d_P2_front_mm: (18*(1+1/0.357)) - 26, reversedMagEstimateManual: "~3.5:1 (at 18mm), ~1.1:1 (at 50mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rfs_10_18mm_f4_5_6_3_is_stm': { name: "Canon RF-S 10-18mm f/4.5-6.3 IS STM", f: 10, f_nominal_aperture: 4.5, lensResolution_lp_mm: null, NM: 0.5, PL: 44.9, MFD: 86, d_P2_front_mm: (10*(1+1/0.5)) - 32.3, reversedMagEstimateManual: "~5:1 (at 10mm), ~3.5:1 (at 18mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rf_35mm_f1_8_macro_is_stm_on_apsc': { name: "Canon RF 35mm F1.8 Macro IS STM (on APS-C)", f: 35, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.5, PL: 62.8, MFD: 170, d_P2_front_mm: (35*(1+1/0.5)) - 89.7, reversedMagEstimateManual: "~1.8:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rfs_55_210mm_f5_7_1_is_stm': { name: "Canon RF-S 55-210mm f/5-7.1 IS STM", f: 55, f_nominal_aperture: 5.0, lensResolution_lp_mm: null, NM: 0.28, PL: 92.9, MFD: 730, d_P2_front_mm: null, reversedMagEstimateManual: "~1.0:1 (at 55mm), <1:1 (at 210mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rfs_10_18mm_f4_5_6_3_is_stm_ext_poc': { name: "Canon RF-S 10-18mm f/4.5-6.3 IS STM", f: 10, f_nominal_aperture: 4.5, lensResolution_lp_mm: null, NM: 0.5, PL: 44.9, MFD: 86, d_P2_front_mm: (10*(1+1/0.5)) - 32.3, reversedMagEstimateManual: "~5:1 or more (at 10mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'canon_rfs_18_45mm_f4_5_6_3_is_stm_ext_poc': { name: "Canon RF-S 18-45mm f/4.5-6.3 IS STM", f: 18, f_nominal_aperture: 4.5, lensResolution_lp_mm: null, NM: 0.26, PL: 44.3, MFD: 250, d_P2_front_mm: (45*(1+1/0.26)) - 178.6, reversedMagEstimateManual: "~3.5:1 (at 18mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'm43': {
+            systemName: "Micro Four Thirds", flangeDistance: 19.25, sensorWidth: 17.3, sensorHeight: 13, typicalMegapixels: 20,
+            lenses: {
+                'olympus_mzuiko_60mm_f2_8_macro': { name: "Olympus M.Zuiko Digital ED 60mm f/2.8 Macro", f: 60, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 82, MFD: 190, d_P2_front_mm: (60*(1+1/1)) - 80, reversedMagEstimateManual: "~0.9:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'om_system_mzuiko_90mm_f3_5_macro_is_pro': { name: "OM System M.Zuiko Digital ED 90mm F3.5 Macro IS PRO", f: 90, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 2.0, PL: 136, MFD: 224, d_P2_front_mm: (90*(1+1/2)) - 93, reversedMagEstimateManual: "~0.6:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'panasonic_lumix_g_30mm_f2_8_macro': { name: "Panasonic Lumix G Macro 30mm f/2.8 ASPH MEGA O.I.S.", f: 30, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.0, PL: 63.5, MFD: 105, d_P2_front_mm: (30*(1+1/1)) - 20, reversedMagEstimateManual: "~2.2:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'laowa_50mm_f2_8_2x_macro_mft': { name: "Laowa 50mm f/2.8 2x Ultra Macro APO (MFT)", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 2.0, PL: 79, MFD: 135, d_P2_front_mm: (50*(1+1/2)) - 44.45, reversedMagEstimateManual: "~1.1:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Limited" },
+                'panasonic_leica_nocticron_42_5mm_f1_2': { name: "Panasonic Leica DG Nocticron 42.5mm f/1.2 ASPH. POWER O.I.S.", f: 42.5, f_nominal_aperture: 1.2, lensResolution_lp_mm: null, NM: 0.1, PL: 76.8, MFD: 500, d_P2_front_mm: null, reversedMagEstimateManual: "~1.4:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'panasonic_lumix_g_14mm_f2_5_ii_ext_poc': { name: "Panasonic Lumix G 14mm f/2.5 II ASPH.", f: 14, f_nominal_aperture: 2.5, lensResolution_lp_mm: null, NM: 0.1, PL: 20.5, MFD: 180, d_P2_front_mm: null, reversedMagEstimateManual: "~4:1", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" },
+                'olympus_mzuiko_8mm_f1_8_fisheye_pro_ext_poc': { name: "Olympus M.Zuiko Digital ED 8mm f/1.8 Fisheye PRO", f: 8, f_nominal_aperture: 1.8, lensResolution_lp_mm: null, NM: 0.2, PL: 80, MFD: 120, d_P2_front_mm: null, reversedMagEstimateManual: "~6:1 or more", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'canon_ef_apsc': {
+            systemName: "Canon EF-S (APS-C DSLR)", flangeDistance: 44, sensorWidth: 22.3, sensorHeight: 14.9, typicalMegapixels: 24,
+            lenses: {
+                'canon_efs_18_55mm_f3_5_5_6_is_stm': { name: "Canon EF-S 18-55mm f/3.5-5.6 IS STM", f: 18, f_nominal_aperture: 3.5, lensResolution_lp_mm: null, NM: 0.36, PL: 95.1, MFD: 250, d_P2_front_mm: (55*(1+1/0.36)) - 154.9, reversedMagEstimateManual: "~3.5:1 (at 18mm), ~0.9:1 (at 55mm)", reversedApertureControlNotes: "Requires compatible auto adapter for aperture control", suitabilityManualReversalRating: "Not Ideal" }
+            }
+        },
+        'vintage_lens_ff_adaptable': {
+            systemName: "Vintage Lenses (Adaptable to FF)", flangeDistance: 44, /* Typical for adapting to mirrorless */ sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 24,
+            lenses: {
+                'nikon_nikkor_28mm_f2_8_ais': { name: "Nikon Nikkor 28mm f/2.8 AIS", f: 28, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 0.11, PL: 44.5, MFD: 200, d_P2_front_mm: null, reversedMagEstimateManual: "~2.5:1", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Good" }
+            }
+        },
+        'enlarger_lens_adaptable': {
+            systemName: "Enlarger Lenses (for Bellows/Adapters)", flangeDistance: 25, /* Arbitrary short for bellows use */ sensorWidth: 36, sensorHeight: 24, typicalMegapixels: 24,
+            lenses: {
+                'el_nikkor_50mm_f2_8n': { name: "Nikon EL-Nikkor 50mm f/2.8N", f: 50, f_nominal_aperture: 2.8, lensResolution_lp_mm: null, NM: 1.17, /* This is often stated as optimal mag, not MFD mag */ PL: 39, MFD: 0, /* MFD not directly applicable, assumes bellows */ d_P2_front_mm: (50*(1+1/1.17)) - 76, /* Estimated based on typical setup */ reversedMagEstimateManual: "~1.2:1 (typically on bellows/tubes)", reversedApertureControlNotes: "Manual aperture ring present", suitabilityManualReversalRating: "Excellent (on bellows/tubes)" }
+            }
+        }
+    };
+
+    const MICROSCOPE_OBJECTIVES_DATA = {
+        'mo_4x_010_160_achro': {
+            name: "4x NA 0.10 Achromat (DIN 160mm)", type: 'finite_microscope',
+            M_obj: 4, NA: 0.10, standardFiniteTubeLength: 160,
+            WD_obj_mm: 26.0, PL_obj_body_mm: 29.20, imageCircle_mm: 20, // Image circle can vary; this is typical for basic objectives
+            isPlan: false, theoretical_lp_mm_sensor: 74.5, sourceRef: "Edmund Optics (#33-436)" // Theoretical for NA 0.10, M=4x, lambda=550nm, sensor side
+        },
+        'mo_10x_025_160_achro': {
+            name: "10x NA 0.25 Achromat (DIN 160mm)", type: 'finite_microscope',
+            M_obj: 10, NA: 0.25, standardFiniteTubeLength: 160,
+            WD_obj_mm: 4.4, PL_obj_body_mm: 38.70, imageCircle_mm: 20,
+            isPlan: false, theoretical_lp_mm_sensor: 74.5, sourceRef: "Edmund Optics (#33-437)" // Theoretical for NA 0.25, M=10x
+        },
+        'mo_40x_065_160_achro': {
+            name: "40x NA 0.65 Achromat (DIN 160mm)", type: 'finite_microscope',
+            M_obj: 40, NA: 0.65, standardFiniteTubeLength: 160,
+            WD_obj_mm: 0.6, PL_obj_body_mm: 44.50, imageCircle_mm: 20, // Example: A 40x might still have a 20mm image circle
+            isPlan: false, theoretical_lp_mm_sensor: 48.4, sourceRef: "Edmund Optics (#36-038)" // Theoretical for NA 0.65, M=40x
+        },
+        'mo_10x_025_160_plan': {
+            name: "10x NA 0.25 Plan Achromat (DIN 160mm)", type: 'finite_microscope',
+            M_obj: 10, NA: 0.25, standardFiniteTubeLength: 160,
+            WD_obj_mm: 1.5, PL_obj_body_mm: 44.00, imageCircle_mm: 20,
+            isPlan: true, theoretical_lp_mm_sensor: 74.5, sourceRef: "Edmund Optics (#43-907)"
+        },
+        'mo_40x_065_160_plan': {
+            name: "40x NA 0.65 Plan Achromat (DIN 160mm)", type: 'finite_microscope',
+            M_obj: 40, NA: 0.65, standardFiniteTubeLength: 160,
+            WD_obj_mm: 0.3, PL_obj_body_mm: 46.00, imageCircle_mm: 20, // Example
+            isPlan: true, theoretical_lp_mm_sensor: 48.4, sourceRef: "Edmund Optics (#43-908)"
+        },
+        'mo_10x_025_160_amscope_plan': {
+            name: "10x NA 0.25 Plan Achromat (AmScope DIN 160mm)", type: 'finite_microscope',
+            M_obj: 10, NA: 0.25, standardFiniteTubeLength: 160,
+            WD_obj_mm: 5.84, PL_obj_body_mm: 44.00, /* PL Estimated from Edmund 10x Plan */ imageCircle_mm: 19, /* Estimated for typical student grade */
+            isPlan: true, theoretical_lp_mm_sensor: 74.5, sourceRef: "AmScope (Representative)"
+        },
+        'mo_40x_065_160_amscope_plan': {
+            name: "40x NA 0.65 Plan Achromat (AmScope DIN 160mm)", type: 'finite_microscope',
+            M_obj: 40, NA: 0.65, standardFiniteTubeLength: 160,
+            WD_obj_mm: 0.633, PL_obj_body_mm: 46.00, /* PL Estimated from Edmund 40x Plan */ imageCircle_mm: 19, /* Estimated */
+            isPlan: true, theoretical_lp_mm_sensor: 48.4, sourceRef: "AmScope (Representative)"
+        }
+    };
+
+
+    const MACRO_ACCESSORIES_DATA = {
+        'none': { name: "No Accessory", length: 0, type: 'none' },
+        'et10mm': { name: "10mm Extension Tube", length: 10, type: 'tube' },
+        'et12mm': { name: "12mm Extension Tube", length: 12, type: 'tube' },
+        'et16mm': { name: "16mm Extension Tube", length: 16, type: 'tube' },
+        'et20mm': { name: "20mm Extension Tube", length: 20, type: 'tube' },
+        'et25mm': { name: "25mm Extension Tube", length: 25, type: 'tube' },
+        'et36mm': { name: "36mm Extension Tube", length: 36, type: 'tube' },
+        'et48mm': { name: "48mm (12+36)", length: 48, type: 'tube' },
+        'et52mm': { name: "52mm (16+36)", length: 52, type: 'tube' },
+        'et56mm': { name: "56mm (20+36)", length: 56, type: 'tube' },
+        'et68mm': { name: "68mm (12+20+36)", length: 68, type: 'tube' },
+        'et72mm': { name: "72mm (36x2)", length: 72, type: 'tube' },
+        'reversal_mount': { name: "Lens Reversal Mount", length: 8, type: 'reversal', effect_note: "Magnification highly variable. Uses estimate if available." }, // Length is approx. for a typical reversal ring + filter thread adapter
+        'raynox_dcr_250': { name: "Raynox DCR-250 (+8 Diopter)", length: 0, type: 'diopter', power: 8, effect_note: "Adds +8 diopters of optical power." } // Length is negligible for calculation
+    };
+
+    const systemSelect = document.getElementById('system-select');
+    const lensSelect = document.getElementById('lens-select');
+    const accessorySelect = document.getElementById('accessory-select');
+    const sensorResolutionSelect = document.getElementById('sensor-resolution-select');
+    const shootingApertureInput = document.getElementById('shooting-aperture-input');
+    const totalDistanceTextDisplay = document.getElementById('total-distance-text-display');
+    const sectionViewDiagram = document.getElementById('section-view-diagram');
+    const sensorSimulationContainer = document.getElementById('sensor-simulation-container');
+    const magnificationDisplayOverlay = document.getElementById('magnification-display-overlay');
+    const imageCircleSVG = document.getElementById('image-circle-svg');
+    const imageCircleElement = imageCircleSVG.querySelector('#mask-circle-inner'); // More specific selector
+    const targetSquareSVG = document.getElementById('target-square-svg');
+    const targetSquareOuter = document.getElementById('target-square-outer');
+    const targetSquareInner = document.getElementById('target-square-inner');
+    const targetSquareText = document.getElementById('target-square-text');
+    const tardigradeSVG = document.getElementById('tardigrade-svg');
+
+
+    const quarterImage = document.getElementById('quarter-image');
+    const riceImage = document.getElementById('rice-image');
+    const bananaImageSVG = document.getElementById('banana-image-svg');
+    const setupDetailsInfo = document.getElementById('setup-details-info');
+    const simulationResultsInfo = document.getElementById('simulation-results-info');
+    const resolutionDetailsInfo = document.getElementById('resolution-details-info');
+
+    let currentSystemData = null;
+    let currentLensData = null;
+    let currentAccessoryData = null;
+    let currentMagnification = 0;
+    let isMicroscopeObjectiveSelected = false;
+
+
+    function parseReversedMagEstimate(magStr, targetFocalLength = null) {
+        if (!magStr || typeof magStr !== 'string') return null;
+        // Try to find focal length specific estimate first if targetFocalLength is provided
+        if (targetFocalLength) {
+            // Regex to match patterns like "~1.2:1 (at 50mm)" or "1.2:1 (at 50mm)"
+            const flSpecificRegex = new RegExp(`(?:~|approx\\.|)(\\d+(?:\\.\\d+)?):1\\s*\\(at\\s*${targetFocalLength}mm\\)`, 'i');
+            const flMatch = magStr.match(flSpecificRegex);
+            if (flMatch && flMatch[1]) return parseFloat(flMatch[1]);
+        }
+        // Fallback to general estimate like "~1.2:1" or "1.2:1"
+        const generalMatch = magStr.match(/(?:~|approx\\.|)(\\d+(?:\.\d+)?):1/);
+        if (generalMatch && generalMatch[1]) return parseFloat(generalMatch[1]);
+        return null;
+    }
+
+    function createInfoTooltip(text) {
+        // Generates HTML for an inline tooltip
+        return `
+            <details class="inline-help relative inline-block ml-1 align-middle">
+                <summary class="help-icon cursor-pointer font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-100 rounded-full w-4 h-4 flex items-center justify-center text-xs select-none focus:outline-none focus:ring-2 focus:ring-indigo-400" title="Click for info">ⓘ</summary>
+                <div class="help-text-dropdown absolute right-0 mt-1 min-w-[250px] p-3 bg-white border border-slate-300 rounded-md shadow-lg text-xs leading-normal text-slate-700 z-20">
+                    ${text}
+                </div>
+            </details>
+        `;
+    }
+
+    function populateSystemDropdown() {
+        systemSelect.innerHTML = '<option value="">--Select Camera System--</option>';
+        const sortedSystemKeys = Object.keys(LENSES_BY_SYSTEM).sort((a, b) => LENSES_BY_SYSTEM[a].systemName.localeCompare(LENSES_BY_SYSTEM[b].systemName));
+        sortedSystemKeys.forEach(systemKey => {
+            const option = document.createElement('option');
+            option.value = systemKey;
+            option.textContent = LENSES_BY_SYSTEM[systemKey].systemName;
+            systemSelect.appendChild(option);
+        });
+        // Populate sensor resolution dropdown with common values
+        const defaultResolutions = [12, 16, 20, 24, 26, 33, 45, 61]; // Common MP values
+        sensorResolutionSelect.innerHTML = ''; // Clear existing options
+        defaultResolutions.forEach(mp => {
+            const option = document.createElement('option');
+            option.value = mp;
+            option.textContent = `${mp} MP`;
+            sensorResolutionSelect.appendChild(option);
+        });
+        sensorResolutionSelect.value = "24"; // Default to 24MP
+    }
+
+    function populateLensDropdown(selectedSystemKey) {
+        lensSelect.innerHTML = '<option value="">--Select Lens/Objective--</option>';
+        isMicroscopeObjectiveSelected = false; // Reset flag
+        accessorySelect.disabled = false; // Enable by default
+        shootingApertureInput.disabled = false; // Enable by default
+
+        if (selectedSystemKey && LENSES_BY_SYSTEM[selectedSystemKey]) {
+            currentSystemData = LENSES_BY_SYSTEM[selectedSystemKey];
+            // Set typical sensor resolution for the system if user hasn't manually changed it
+            if (!sensorResolutionSelect.dataset.userSet) { // Check if user has set it
+                 sensorResolutionSelect.value = currentSystemData.typicalMegapixels || "24";
+            }
+
+            const lensesObject = currentSystemData.lenses;
+            if (lensesObject && Object.keys(lensesObject).length > 0) {
+                const cameraLensesOptGroup = document.createElement('optgroup');
+                cameraLensesOptGroup.label = 'Camera Lenses';
+                // Sort lenses by focal length, then by name
+                const sortedLenses = Object.entries(lensesObject).sort(([, a], [, b]) => (a.f || 0) === (b.f || 0) ? a.name.localeCompare(b.name) : (a.f || 0) - (b.f || 0));
+                sortedLenses.forEach(([lensKey, lensData]) => {
+                    const option = document.createElement('option');
+                    option.value = lensKey;
+                    option.textContent = lensData.name;
+                    cameraLensesOptGroup.appendChild(option);
+                });
+                lensSelect.appendChild(cameraLensesOptGroup);
+            }
+
+            // Add microscope objectives as a separate optgroup, available for all systems
+            if (Object.keys(MICROSCOPE_OBJECTIVES_DATA).length > 0) {
+                const microObjectivesOptGroup = document.createElement('optgroup');
+                microObjectivesOptGroup.label = 'Microscope Objectives (Finite 160mm Tube)';
+                const sortedMicroscopeObjectives = Object.entries(MICROSCOPE_OBJECTIVES_DATA)
+                    .sort(([,a],[,b]) => a.M_obj - b.M_obj || a.name.localeCompare(b.name)); // Sort by magnification then name
+                sortedMicroscopeObjectives.forEach(([key, objData]) => {
+                    const option = document.createElement('option');
+                    option.value = key; // Use the key from MICROSCOPE_OBJECTIVES_DATA
+                    option.textContent = objData.name;
+                    microObjectivesOptGroup.appendChild(option);
+                });
+                lensSelect.appendChild(microObjectivesOptGroup);
+            }
+        } else {
+            currentSystemData = null; // No valid system selected
+        }
+        updateVisualization(); // Update based on new lens options (or lack thereof)
+    }
+
+    function populateAccessoryDropdown() {
+        accessorySelect.innerHTML = ''; // Clear existing options
+        // Sort accessories: "None" first, then by type (tubes first), then by length/name
+        const sortedAccessories = Object.entries(MACRO_ACCESSORIES_DATA)
+            .sort(([, a], [, b]) => {
+                if (a.type === 'none') return -1; if (b.type === 'none') return 1; // "None" always first
+                if (a.type === 'tube' && b.type !== 'tube') return -1; if (b.type === 'tube' && a.type !== 'tube') return 1; // Tubes before others
+                return a.length - b.length || a.name.localeCompare(b.name); // Then sort by length, then name
+            });
+        sortedAccessories.forEach(([accKey, accData]) => {
+            const option = document.createElement('option');
+            option.value = accKey; option.textContent = accData.name;
+            accessorySelect.appendChild(option);
+        });
+        accessorySelect.value = 'none'; // Default to "No Accessory"
+    }
+
+    function createDiagramElement(type, textContent, customClassString, height) {
+        const el = document.createElement('div');
+        // Set height with transition for smooth updates
+        el.style.height = `${Math.max(type === 'line' ? 2 : (type === 'text-label' ? 12 : 10), height)}px`;
+        el.style.transition = 'height 0.3s ease-in-out';
+
+        // Helper to apply Tailwind classes
+        const applyClasses = (element, klasses) => {
+            if (klasses && typeof klasses === 'string' && klasses.trim() !== '') {
+                klasses.split(' ')
+                       .map(k => k.trim())
+                       .filter(k => k.length > 0)
+                       .forEach(k => {
+                           if (k) element.classList.add(k)
+                        });
+            } else if (Array.isArray(klasses)) {
+                klasses.map(k => typeof k === 'string' ? k.trim() : '')
+                       .filter(k => k.length > 0)
+                       .forEach(k => {
+                           if (k) element.classList.add(k)
+                        });
+            }
+        };
+
+        let baseClasses = [];
+        let stylingClasses = [];
+
+        if (type === 'line') {
+            applyClasses(el, customClassString); // Apply custom classes directly for lines
+            el.style.height = `2px`; // Fixed height for lines
+        } else if (type === 'text-label') {
+            baseClasses = ['text-xs', 'text-slate-600', 'text-center', 'w-full', 'mb-0.5', 'mt-0.5'];
+            el.style.height = `auto`; // Auto height for text labels
+            el.textContent = textContent; // Use textContent for safety
+        } else { // 'block'
+            baseClasses = ['w-[85%]', 'max-w-[180px]', 'mb-px', 'flex', 'items-center', 'justify-center', 'text-[0.65em]', 'text-center', 'rounded-sm', 'px-1', 'box-border', 'whitespace-normal', 'overflow-hidden', 'leading-tight'];
+            if (customClassString && typeof customClassString === 'string' && customClassString.trim() !== '') {
+                stylingClasses = customClassString.split(' ').map(k => k.trim()).filter(k => k.length > 0);
+            }
+            // Default text color if not specified
+            if (!stylingClasses.some(cls => cls.startsWith('text-'))) {
+                stylingClasses.push('text-white');
+            }
+            el.textContent = textContent; // Use textContent for safety; labels are simple strings
+            // Add title attribute for lens/objective name for better UX
+            if (currentLensData) {
+                if (!isMicroscopeObjectiveSelected && customClassString && customClassString.includes('bg-green-500')) { // Camera Lens block
+                    el.title = currentLensData.name;
+                } else if (isMicroscopeObjectiveSelected && customClassString && customClassString.includes('bg-purple-500')) { // Microscope Objective block
+                     el.title = currentLensData.name;
+                }
+            }
+        }
+        applyClasses(el, baseClasses);
+        applyClasses(el, stylingClasses);
+        return el;
+    }
+
+
+    function updateVisualization() {
+        // Get current selections
+        const selectedSystemKey = systemSelect.value;
+        const selectedLensKey = lensSelect.value;
+        let selectedAccessoryKey = accessorySelect.value || 'none'; // Default to 'none' if undefined
+        const selectedSensorMP = parseFloat(sensorResolutionSelect.value);
+        const shootingApertureVal = parseFloat(shootingApertureInput.value);
+        let reversalSpecificNotesHTML = ""; // For notes specific to reversed lenses
+
+        // Variables for calculations
+        let approxNativeObjectDistance = null; // For camera lenses, distance from P.P. for native magnification
+        let currentApproxObjectDistance = null; // Current object distance from P.P. with accessories
+        let bLsens = 0, bWsens = 0, qDiaMm = 0; // Projected dimensions for banana, quarter
+
+        // Determine if a microscope objective is selected
+        isMicroscopeObjectiveSelected = MICROSCOPE_OBJECTIVES_DATA.hasOwnProperty(selectedLensKey);
+
+        // Adjust UI based on microscope objective selection
+        if (isMicroscopeObjectiveSelected) {
+            accessorySelect.value = 'none'; // No accessories for microscope objectives
+            accessorySelect.disabled = true;
+            shootingApertureInput.disabled = true; // Aperture is fixed by NA for MOs
+            currentAccessoryData = MACRO_ACCESSORIES_DATA['none'];
+        } else {
+            accessorySelect.disabled = false;
+            shootingApertureInput.disabled = false;
+            currentAccessoryData = MACRO_ACCESSORIES_DATA[selectedAccessoryKey];
+        }
+
+        // Function to reset UI elements if selections are invalid
+        const resetUIForNoSelection = () => {
+            currentSystemData = null; currentLensData = null; currentAccessoryData = MACRO_ACCESSORIES_DATA['none']; currentMagnification = 0; isMicroscopeObjectiveSelected = false;
+            accessorySelect.disabled = false; // Re-enable in case it was disabled
+            shootingApertureInput.disabled = false; // Re-enable
+
+            setupDetailsInfo.innerHTML = '<p class="text-slate-500 italic">Select system, lens/objective, and valid settings for setup details.</p>';
+            magnificationDisplayOverlay.style.display = 'none';
+            imageCircleSVG.style.display = 'none';
+            targetSquareSVG.style.display = 'none';
+            tardigradeSVG.style.display = 'none';
+            [quarterImage, riceImage, bananaImageSVG].forEach(img => { img.style.display = 'none'; });
+            simulationResultsInfo.innerHTML = '<p class="text-slate-500 italic">Select system and lens/objective for simulation results.</p>';
+            sensorSimulationContainer.style.aspectRatio = '3 / 2'; // Default aspect ratio
+            sectionViewDiagram.innerHTML = ''; // Clear diagram
+            totalDistanceTextDisplay.style.display = 'none';
+            // Add placeholder diagram elements
+            sectionViewDiagram.appendChild(createDiagramElement('text-label', 'Subject Plane', '', 15));
+            sectionViewDiagram.appendChild(createDiagramElement('line', '', 'w-full border-t-2 border-dashed border-slate-500', 2));
+            sectionViewDiagram.appendChild(createDiagramElement('block', 'Space to Subject', 'bg-slate-200 text-slate-800 border border-dashed border-slate-400', 60));
+            sectionViewDiagram.appendChild(createDiagramElement('block', 'Lens/Objective', 'bg-green-500 text-white', 60)); // Default green for lens
+            sectionViewDiagram.appendChild(createDiagramElement('block', 'Body/Adapter to Sensor', 'bg-slate-400 text-white', 30));
+            sectionViewDiagram.appendChild(createDiagramElement('line', '', 'w-full border-b-2 border-solid border-slate-600', 2));
+            sectionViewDiagram.appendChild(createDiagramElement('text-label', 'Sensor', '', 15));
+            resolutionDetailsInfo.innerHTML = `<p class="text-slate-500 italic">Select setup for resolution, DOF & WD analysis.</p>`;
+        };
+
+        // Validate essential selections
+        if (!selectedSystemKey || !LENSES_BY_SYSTEM[selectedSystemKey]) {
+             resetUIForNoSelection(); return;
+        }
+        currentSystemData = LENSES_BY_SYSTEM[selectedSystemKey];
+
+        if (!selectedLensKey) { // No lens/objective selected
+            resetUIForNoSelection(); return;
+        }
+
+        // Get lens data (either camera lens or microscope objective)
+        if (isMicroscopeObjectiveSelected) {
+            currentLensData = MICROSCOPE_OBJECTIVES_DATA[selectedLensKey];
+        } else if (currentSystemData.lenses && currentSystemData.lenses[selectedLensKey]) {
+            currentLensData = currentSystemData.lenses[selectedLensKey];
+        } else { // Lens key not found in system's lenses (should not happen if populated correctly)
+            resetUIForNoSelection(); return;
+        }
+
+        // Further validation for necessary data
+        if (!currentLensData || isNaN(selectedSensorMP) || (!isMicroscopeObjectiveSelected && (isNaN(shootingApertureVal) || shootingApertureVal <= 0))) {
+            resetUIForNoSelection(); return;
+        }
+
+
+        // Sensor and Lens Physical Length (PL)
+        const SENSOR_WIDTH_MM = currentSystemData.sensorWidth || 0;
+        const SENSOR_HEIGHT_MM = currentSystemData.sensorHeight || 0;
+        let LENS_PL_BARREL = isMicroscopeObjectiveSelected ? (currentLensData.PL_obj_body_mm || 0) : (currentLensData.PL || 0);
+
+
+        let currentWorkingDistance = null; // WD from front of lens/objective to subject
+        let currentWorkingDistanceText = "N/A";
+        let focusIsImpractical = false; // Flag if focusing seems physically impossible
+        let effectiveAperture = 0; // Effective f-number for calculations
+
+
+        if (isMicroscopeObjectiveSelected) {
+            currentMagnification = currentLensData.M_obj || 0;
+            currentWorkingDistance = currentLensData.WD_obj_mm || 0;
+            currentWorkingDistanceText = `${currentWorkingDistance.toFixed(1)} mm`;
+            effectiveAperture = currentMagnification / (2 * (currentLensData.NA || 0.1)); // Effective aperture for MO
+            shootingApertureInput.value = effectiveAperture.toFixed(1); // Display calculated effective f-stop (input is disabled)
+        } else { // Camera Lens
+            let lensFocalLength = currentLensData.f || 0;
+            // Use a very small number for NM if it's 0 to avoid division by zero, effectively treating it as infinity focus
+            let lensNativeMag = currentLensData.NM === 0 ? 0.00001 : (currentLensData.NM || 0.00001);
+
+            // Approx. object distance (from P.P.) for lens's native max magnification (NM)
+            approxNativeObjectDistance = lensNativeMag > 0 ? lensFocalLength * (1 + 1 / lensNativeMag) : Infinity;
+            if (lensNativeMag === 0.00001 && currentAccessoryData.type !== 'reversal') approxNativeObjectDistance = Infinity; // If NM is effectively 0, set to infinity unless reversed
+
+
+            // Calculate magnification based on accessory
+            if (currentAccessoryData.type === 'reversal') {
+                const parsedManualMag = parseReversedMagEstimate(currentLensData.reversedMagEstimateManual, lensFocalLength);
+                let reversalMagSourceNote = "";
+                if (parsedManualMag !== null && !isNaN(parsedManualMag)) {
+                    currentMagnification = parsedManualMag; reversalMagSourceNote = "(Using manual estimate)";
+                } else {
+                    // Fallback formula for reversed lens magnification: M = (Extension / FocalLength) - 1
+                    // Extension here is flange distance + reversal adapter length
+                    const effectiveExtensionForReversed = currentSystemData.flangeDistance + currentAccessoryData.length;
+                    if (lensFocalLength > 0) { currentMagnification = (effectiveExtensionForReversed / lensFocalLength) - 1; reversalMagSourceNote = "(Using fallback formula)"; }
+                    else { currentMagnification = 0; reversalMagSourceNote = "(Fallback formula N/A, f=0)"; } // Avoid division by zero if f=0
+                }
+                currentMagnification = Math.max(0, currentMagnification); // Ensure magnification is not negative
+                reversalSpecificNotesHTML = `<div class="mt-2 p-2 bg-sky-50 border border-sky-200 rounded-md text-sky-700 text-xs"><strong>Reversal Notes:</strong> Estimated Mag: ${currentMagnification.toFixed(2)}x ${reversalMagSourceNote}. `;
+                if (currentLensData.reversedApertureControlNotes) reversalSpecificNotesHTML += `Aperture Ctrl: ${currentLensData.reversedApertureControlNotes}. `;
+                if (currentLensData.suitabilityManualReversalRating) reversalSpecificNotesHTML += `Suitability: ${currentLensData.suitabilityManualReversalRating}.`;
+                reversalSpecificNotesHTML += `</div>`;
+            } else if (currentAccessoryData.type === 'diopter') {
+                const M_diopter = (lensFocalLength / 1000) * currentAccessoryData.power; // Magnification added by diopter
+                currentMagnification = (lensNativeMag === 0.00001 ? 0 : lensNativeMag) + M_diopter;
+            } else { // Extension tube or no accessory
+                // M_new = M_native + (ExtensionTubeLength / FocalLength)
+                currentMagnification = (lensNativeMag === 0.00001 && lensFocalLength === 0 ? 0 : lensNativeMag) + (currentAccessoryData.length / (lensFocalLength || 1)); // Use 1 if focal length is 0 to avoid div by zero
+            }
+            currentMagnification = parseFloat(currentMagnification.toFixed(3)); // Standardize precision
+            if (currentMagnification < 0) currentMagnification = 0; // Ensure non-negative
+
+            // Calculate current approximate object distance (from P.P.) based on new magnification
+            currentApproxObjectDistance = (lensFocalLength || 1) * (1 + 1 / (currentMagnification || 0.00001)); // Use fallbacks to avoid div by zero
+            if (currentMagnification === 0 || !isFinite(currentMagnification) || lensFocalLength === 0) currentApproxObjectDistance = Infinity;
+
+            effectiveAperture = shootingApertureVal * (1 + currentMagnification); // Effective aperture for camera lens
+
+            // Calculate Working Distance (WD) if d_P2_front_mm is available
+            // WD = Object Distance (from P2) - Distance from P2 to front of lens
+            if (currentLensData.d_P2_front_mm !== null && currentLensData.d_P2_front_mm !== undefined && isFinite(currentApproxObjectDistance)) {
+                currentWorkingDistance = currentApproxObjectDistance - currentLensData.d_P2_front_mm;
+                currentWorkingDistanceText = `${currentWorkingDistance.toFixed(1)} mm`;
+            } else if (currentApproxObjectDistance === Infinity && currentLensData.d_P2_front_mm !== null) { // Focused at infinity
+                 currentWorkingDistanceText = "∞"; currentWorkingDistance = Infinity;
+            } // Else, currentWorkingDistance remains null, text "N/A"
+        }
+
+        // Check for impractical focusing conditions
+        // For MOs, this is primarily driven by WD_obj_mm.
+        // For Camera Lenses, it's driven by calculated WD or object distance from P.P.
+        if (isMicroscopeObjectiveSelected) {
+            if (currentWorkingDistance !== null && isFinite(currentWorkingDistance) && currentWorkingDistance < MIN_PRACTICAL_WORKING_DISTANCE) {
+                focusIsImpractical = true;
+            }
+        } else { // Camera Lens
+            opticalFocusImpracticalPP = isFinite(currentApproxObjectDistance) && currentApproxObjectDistance < MIN_PRACTICAL_OBJECT_DISTANCE_PP;
+            if (currentWorkingDistance !== null && isFinite(currentWorkingDistance) && currentWorkingDistance < MIN_PRACTICAL_WORKING_DISTANCE) {
+                focusIsImpractical = true;
+            }
+            if (opticalFocusImpracticalPP && !focusIsImpractical) { // If WD wasn't determinable but P.P. distance is impractical
+                focusIsImpractical = true;
+            }
+        }
+
+
+        // Calculate total distance from sensor to subject
+        let totalSensorToSubjectDistance = null;
+        if (isMicroscopeObjectiveSelected) {
+            totalSensorToSubjectDistance = (currentLensData.standardFiniteTubeLength || 0) + (currentLensData.WD_obj_mm || 0);
+        } else if (currentWorkingDistance !== null && isFinite(currentWorkingDistance) && LENS_PL_BARREL !== null) {
+            totalSensorToSubjectDistance = currentWorkingDistance + LENS_PL_BARREL + currentAccessoryData.length + currentSystemData.flangeDistance;
+        } else if (currentWorkingDistance === Infinity && LENS_PL_BARREL !== null) { // Focused at infinity
+            totalSensorToSubjectDistance = Infinity;
+        } else if (currentApproxObjectDistance === Infinity && LENS_PL_BARREL !== null && (currentWorkingDistance === null || !isFinite(currentWorkingDistance))) {
+            // If object distance (P.P.) is infinity and WD couldn't be determined (e.g. d_P2_front_mm missing)
+             totalSensorToSubjectDistance = Infinity;
+        }
+
+        totalDistanceTextDisplay.textContent = `Approx. Sensor to Subject: ${totalSensorToSubjectDistance === Infinity ? "∞" : (totalSensorToSubjectDistance !== null ? totalSensorToSubjectDistance.toFixed(0) + 'mm' : "N/A")}`;
+        totalDistanceTextDisplay.style.display = 'block';
+
+        // Update Section View Diagram
+        sectionViewDiagram.innerHTML = ''; // Clear previous diagram elements
+        const diagramTotalUsableHeight = Math.max(100, sectionViewDiagram.clientHeight - (15 + 2 + 15 + 2 + 5)); // Top/bottom labels and lines, plus some padding
+        const minElementHeight = 10; // Minimum pixel height for a diagram block
+
+        let firstBlockDistanceForScaling, firstBlockLabel, firstBlockClass;
+        let lensBlockPhysicalLengthForDiagram, lensBlockLabel, lensBlockClass;
+        let thirdBlockPhysicalLength, thirdBlockLabel, thirdBlockClass;
+        let fourthBlockPhysicalLength = 0, fourthBlockLabel = "", fourthBlockClass = ""; // For camera lens setup with accessory
+        let sumOfLengthsForScaling;
+
+        if (isMicroscopeObjectiveSelected) {
+            firstBlockDistanceForScaling = currentLensData.WD_obj_mm || 0;
+            firstBlockLabel = `Working Dist: ${(currentLensData.WD_obj_mm || 0).toFixed(1)}mm`;
+            firstBlockClass = 'bg-slate-200 text-slate-800 border border-dashed border-slate-400';
+            if (focusIsImpractical) { // This means WD_obj_mm < MIN_PRACTICAL_WORKING_DISTANCE
+                firstBlockLabel = `WD (${(currentLensData.WD_obj_mm || 0).toFixed(1)}mm) Impractical`;
+                firstBlockClass = 'bg-red-200 text-red-700 border border-dashed border-red-400';
+            }
+
+            lensBlockPhysicalLengthForDiagram = currentLensData.PL_obj_body_mm || 40; // Physical length of objective body
+            lensBlockLabel = `Objective (${currentLensData.M_obj}x)`;
+            lensBlockClass = 'bg-purple-500 text-white'; // Purple for objectives
+
+            // Remaining tube length (camera body + adapter)
+            thirdBlockPhysicalLength = (currentLensData.standardFiniteTubeLength || 160) - (currentLensData.PL_obj_body_mm || 40);
+            if (thirdBlockPhysicalLength < 0) thirdBlockPhysicalLength = minElementHeight; // Ensure non-negative practical length
+            thirdBlockLabel = `Adapter+Body Tube: ${thirdBlockPhysicalLength.toFixed(0)}mm`;
+            thirdBlockClass = 'bg-slate-400 text-white';
+
+            sumOfLengthsForScaling = (currentLensData.WD_obj_mm || 0) + (currentLensData.standardFiniteTubeLength || 160);
+        } else { // Camera Lens
+            if (currentWorkingDistance !== null && isFinite(currentWorkingDistance)) {
+                firstBlockDistanceForScaling = currentWorkingDistance;
+                firstBlockLabel = `Working Dist: ${currentWorkingDistance.toFixed(0)}mm`;
+                firstBlockClass = 'bg-slate-200 text-slate-800 border border-dashed border-slate-400';
+                if (focusIsImpractical) { // This means calculated WD < MIN_PRACTICAL_WORKING_DISTANCE
+                    firstBlockLabel = `WD (${currentWorkingDistance.toFixed(0)}mm) Impractical`;
+                    firstBlockClass = 'bg-red-200 text-red-700 border border-dashed border-red-400';
+                }
+            } else { // WD not available, use object distance from P.P. as a proxy for diagram scaling
+                firstBlockDistanceForScaling = currentApproxObjectDistance; // Can be Infinity
+                firstBlockLabel = `Obj. Dist (P.P.): ${currentApproxObjectDistance === Infinity ? "∞" : (currentApproxObjectDistance || 0).toFixed(0)}mm`;
+                firstBlockClass = 'bg-orange-100 text-orange-800 border border-dashed border-orange-400'; // Different color for P.P. distance
+                if (focusIsImpractical) { // This means P.P. distance < MIN_PRACTICAL_OBJECT_DISTANCE_PP
+                    firstBlockLabel = `Obj. Dist (P.P.) Impractical`;
+                    firstBlockClass = 'bg-red-200 text-red-700 border border-dashed border-red-400';
+                }
+            }
+
+            lensBlockPhysicalLengthForDiagram = LENS_PL_BARREL > 0 ? LENS_PL_BARREL : minElementHeight * 1.5; // Ensure some length if PL is 0
+            lensBlockLabel = `Lens Barrel (${(LENS_PL_BARREL || 0).toFixed(0)}mm)`;
+            lensBlockClass = 'bg-green-500 text-white'; // Green for camera lenses
+
+            if (currentAccessoryData.length > 0) {
+                thirdBlockPhysicalLength = currentAccessoryData.length;
+                thirdBlockLabel = `Accessory (${currentAccessoryData.length}mm)`;
+                thirdBlockClass = 'bg-blue-500 text-white'; // Blue for accessories
+                fourthBlockPhysicalLength = currentSystemData.flangeDistance;
+                fourthBlockLabel = `Body to Sensor (${currentSystemData.flangeDistance}mm)`;
+                fourthBlockClass = 'bg-slate-400 text-white';
+            } else { // No accessory
+                thirdBlockPhysicalLength = currentSystemData.flangeDistance;
+                thirdBlockLabel = `Body to Sensor (${currentSystemData.flangeDistance}mm)`;
+                thirdBlockClass = 'bg-slate-400 text-white';
+                fourthBlockPhysicalLength = 0; // No fourth block
+            }
+            sumOfLengthsForScaling = (firstBlockDistanceForScaling === Infinity ? 150 : (firstBlockDistanceForScaling || 0)) + // Use a placeholder for infinity for scaling
+                                  (LENS_PL_BARREL || 0) +
+                                  currentAccessoryData.length +
+                                  currentSystemData.flangeDistance;
+        }
+
+        // Calculate scale factor for diagram elements
+        let scaleFactor = (sumOfLengthsForScaling > 0 && diagramTotalUsableHeight > 0 && isFinite(sumOfLengthsForScaling)) ? diagramTotalUsableHeight / sumOfLengthsForScaling : 0.1; // Default scale if sum is 0 or infinite
+
+        // Calculate actual heights for diagram blocks
+        let firstBlockHeight = Math.max(minElementHeight, (firstBlockDistanceForScaling === Infinity ? 150 : (firstBlockDistanceForScaling || 0)) * scaleFactor);
+        let actualLensBlockHeight = Math.max(minElementHeight, lensBlockPhysicalLengthForDiagram * scaleFactor);
+        let thirdBlockActualHeight = Math.max(minElementHeight, thirdBlockPhysicalLength * scaleFactor);
+        let fourthBlockActualHeight = fourthBlockPhysicalLength > 0 ? Math.max(minElementHeight * 0.5, fourthBlockPhysicalLength * scaleFactor) : 0;
+
+        // Rescale if total height exceeds available space (can happen with many small elements or large infinity placeholder)
+        let currentTotalScaledBlockHeight = firstBlockHeight + actualLensBlockHeight + thirdBlockActualHeight + fourthBlockActualHeight;
+        if (currentTotalScaledBlockHeight > diagramTotalUsableHeight && diagramTotalUsableHeight > 0 && currentTotalScaledBlockHeight > 0) {
+            let r = diagramTotalUsableHeight / currentTotalScaledBlockHeight;
+            firstBlockHeight = Math.max(minElementHeight*0.6, firstBlockHeight*r); // Ensure minimums even when rescaling
+            actualLensBlockHeight = Math.max(minElementHeight*0.6, actualLensBlockHeight*r);
+            thirdBlockActualHeight = Math.max(minElementHeight*0.6, thirdBlockActualHeight*r);
+            if (fourthBlockPhysicalLength > 0) fourthBlockActualHeight = Math.max(minElementHeight*0.3, fourthBlockActualHeight*r);
+        }
+
+        // Add elements to diagram
+        sectionViewDiagram.appendChild(createDiagramElement('text-label', 'Subject Plane', '', 15));
+        sectionViewDiagram.appendChild(createDiagramElement('line', '', 'w-full border-t-2 border-dashed border-slate-500', 2));
+        sectionViewDiagram.appendChild(createDiagramElement('block', firstBlockLabel, firstBlockClass, firstBlockHeight));
+        sectionViewDiagram.appendChild(createDiagramElement('block', lensBlockLabel, lensBlockClass, actualLensBlockHeight));
+        sectionViewDiagram.appendChild(createDiagramElement('block', thirdBlockLabel, thirdBlockClass, thirdBlockActualHeight));
+        if (fourthBlockPhysicalLength > 0 && !isMicroscopeObjectiveSelected) { // Only add fourth block if it exists (camera lens with accessory)
+            sectionViewDiagram.appendChild(createDiagramElement('block', fourthBlockLabel, fourthBlockClass, fourthBlockActualHeight));
+        }
+        sectionViewDiagram.appendChild(createDiagramElement('line', '', 'w-full border-b-2 border-solid border-slate-600', 2));
+        sectionViewDiagram.appendChild(createDiagramElement('text-label', 'Sensor', '', 15));
+
+        // Update Setup Details Info Box
+        let setupDetailsHTML = `<p class="info-line py-1"><strong>${isMicroscopeObjectiveSelected ? 'Objective' : 'Lens'}:</strong> ${currentLensData.name}</p>`;
+        if (!isMicroscopeObjectiveSelected) {
+            setupDetailsHTML += `<p class="info-line py-1"><strong>Accessory:</strong> ${currentAccessoryData.name} ${currentAccessoryData.effect_note ? `<em class="text-xs text-slate-500">(${currentAccessoryData.effect_note})</em>` : ''}</p>`;
+            // Highlight if object distance is calculated due to accessories or different from native
+            const isCalculatedValueForLens = selectedAccessoryKey !== 'none' || (currentLensData.NM !== undefined && currentMagnification.toFixed(3) !== (currentLensData.NM || 0).toFixed(3) );
+            let currentObjDistSpanClass = isCalculatedValueForLens ? 'text-indigo-600 font-semibold' : '';
+            let currentObjDistText = `Approx. Object Dist (P.P.): ${currentApproxObjectDistance === Infinity ? "∞" : `<span class="${currentObjDistSpanClass}">${(currentApproxObjectDistance || 0).toFixed(0)}mm</span>`}`;
+            currentObjDistText += createInfoTooltip("Object Distance (Principal Point): Approximate distance from the lens's rear principal point (an optical reference) to the subject. Not working distance.");
+            setupDetailsHTML += `<p class="info-line py-1">${currentObjDistText}</p>`;
+        }
+        // Highlight working distance if it's a calculated value (differs from a simple lens MFD scenario)
+        const isCalculatedValueForWD = isMicroscopeObjectiveSelected || selectedAccessoryKey !== 'none' || (!isMicroscopeObjectiveSelected && currentLensData.NM !== undefined && currentMagnification.toFixed(3) !== (currentLensData.NM || 0).toFixed(3) );
+        let workingDistanceDisplayHTML = `<p class="info-line py-1">Approx. Working Distance (Front to Subject): ${createInfoTooltip("Distance from the physical front of the lens/objective to the subject. 'N/A' if data is missing.")} <strong class="${isCalculatedValueForWD && currentWorkingDistanceText !== 'N/A' && currentWorkingDistanceText !== '∞' ? 'text-indigo-600 font-semibold' : ''}">${currentWorkingDistanceText}</strong></p>`;
+        setupDetailsHTML += workingDistanceDisplayHTML;
+        if (focusIsImpractical) setupDetailsHTML += `<p class="text-red-600 font-semibold mt-1 py-1">Warning: Focus likely impractical or inside lens/objective due to very small working/object distance.</p>`;
+        if (isMicroscopeObjectiveSelected) {
+            setupDetailsHTML += `<p class="text-xs text-slate-600 mt-1 py-1">Note: Assumes objective is used with its specified ${currentLensData.standardFiniteTubeLength}mm tube length (sensor to objective shoulder).</p>`;
+        }
+        setupDetailsInfo.innerHTML = setupDetailsHTML;
+
+        // Update Magnification Display and Sensor Simulation
+        magnificationDisplayOverlay.textContent = `${currentMagnification.toFixed(isMicroscopeObjectiveSelected ? 1 : 3)}x`;
+        magnificationDisplayOverlay.style.display = 'block';
+        // Only dim for camera lenses if focus is impractical. MOs always full opacity.
+        sensorSimulationContainer.style.opacity = (!isMicroscopeObjectiveSelected && focusIsImpractical) ? '0.3' : '1';
+
+        if (SENSOR_WIDTH_MM && SENSOR_HEIGHT_MM && SENSOR_HEIGHT_MM > 0) sensorSimulationContainer.style.aspectRatio = `${SENSOR_WIDTH_MM} / ${SENSOR_HEIGHT_MM}`;
+        else sensorSimulationContainer.style.aspectRatio = '3 / 2'; // Default
+
+        // Calculate pixels per mm on the sensor display
+        const sensorDisplayWidthPx = sensorSimulationContainer.clientWidth;
+        const sensorDisplayHeightPx = sensorSimulationContainer.clientHeight; // Get container height for positioning
+        const pxPerMmSensor = (sensorDisplayWidthPx > 0 && SENSOR_WIDTH_MM > 0) ? (sensorDisplayWidthPx / SENSOR_WIDTH_MM) : 0;
+
+        // Hide all simulated objects initially
+        bananaImageSVG.style.display = 'none';
+        quarterImage.style.display = 'none';
+        riceImage.style.display = 'none';
+        targetSquareSVG.style.display = 'none';
+        tardigradeSVG.style.display = 'none';
+
+
+        // Image Circle (Vignetting) for Microscope Objectives
+        imageCircleSVG.style.display = 'none'; // Hide by default
+        let vignettingNote = "";
+        if (isMicroscopeObjectiveSelected && currentLensData.imageCircle_mm && pxPerMmSensor > 0) {
+            const imageCircleRadiusPx = (currentLensData.imageCircle_mm / 2) * pxPerMmSensor;
+            // Ensure imageCircleElement is valid and radius is drawable
+            if (imageCircleElement && imageCircleRadiusPx >= 0.5) {
+                imageCircleElement.setAttribute('cx', (sensorDisplayWidthPx / 2).toFixed(2));
+                imageCircleElement.setAttribute('cy', (sensorDisplayHeightPx / 2).toFixed(2)); // Corrected
+                imageCircleElement.setAttribute('r', imageCircleRadiusPx.toFixed(2));
+                imageCircleSVG.style.display = 'block'; // Show the vignetting effect
+            } else {
+                imageCircleSVG.style.display = 'none';
+            }
+
+            // Check if image circle is smaller than sensor diagonal (approx check for vignetting)
+            const sensorDiagonalPx = Math.sqrt(Math.pow(sensorDisplayWidthPx, 2) + Math.pow(sensorDisplayHeightPx, 2));
+            if (imageCircleRadiusPx * 2 < sensorDiagonalPx * 0.95) { // Add a small tolerance (0.95)
+                 vignettingNote = `<p class="text-orange-600 font-semibold mt-1 py-1">Note: Objective's image circle (~${currentLensData.imageCircle_mm}mm) likely causes vignetting on this sensor.</p>`;
+            }
+        }
+
+        // Display and size simulated objects based on selection type
+        if (isMicroscopeObjectiveSelected) {
+            riceImage.style.display = 'block'; // Rice is always shown for MOs
+
+            const riceWidthOnSensorPx = (RICE_WIDTH_MM * currentMagnification) * pxPerMmSensor;
+            const riceHeightOnSensorPx = (RICE_LENGTH_MM * currentMagnification) * pxPerMmSensor;
+            riceImage.style.width = `${Math.max(1, riceWidthOnSensorPx)}px`;
+            riceImage.style.height = `${Math.max(1, riceHeightOnSensorPx)}px`;
+
+            // Consistent rice positioning for "powers of ten" effect with MOs
+            const riceContainerWidth = sensorDisplayWidthPx;
+            const riceContainerHeight = sensorDisplayHeightPx;
+            // Position rice in the bottom-right quadrant, for example
+            riceImage.style.left = `${(riceContainerWidth * 0.75 - riceWidthOnSensorPx / 2).toFixed(0)}px`;
+            riceImage.style.top = `${(riceContainerHeight * 0.75 - riceHeightOnSensorPx / 2).toFixed(0)}px`;
+            riceImage.style.transform = `rotate(10deg)`;
+
+
+            if (currentMagnification >= 10) { // Higher magnification (e.g. 10x, 40x): Tardigrade + Rice
+                tardigradeSVG.style.display = 'block';
+                targetSquareSVG.style.display = 'none'; // Hide target square and its text
+
+                const tardiProjectedWidthPx = TARDIGRADE_WIDTH_MM * currentMagnification * pxPerMmSensor;
+                const tardiProjectedHeightPx = TARDIGRADE_LENGTH_MM * currentMagnification * pxPerMmSensor;
+                tardigradeSVG.setAttribute('width', Math.max(1, tardiProjectedWidthPx).toFixed(2));
+                tardigradeSVG.setAttribute('height', Math.max(1, tardiProjectedHeightPx).toFixed(2));
+                tardigradeSVG.style.left = `${((sensorDisplayWidthPx - Math.max(1, tardiProjectedWidthPx)) / 2).toFixed(0)}px`;
+                tardigradeSVG.style.top = `${((sensorDisplayHeightPx - Math.max(1, tardiProjectedHeightPx)) / 2).toFixed(0)}px`;
+
+            } else { // Lower magnification (e.g., 4x): Target Square + Rice
+                targetSquareSVG.style.display = 'block';
+                tardigradeSVG.style.display = 'none'; // Hide tardigrade
+
+                const outerSizePx = TARGET_SQUARE_OUTER_MM * currentMagnification * pxPerMmSensor;
+                const innerSizePx = (TARGET_SQUARE_INNER_UM / 1000) * currentMagnification * pxPerMmSensor;
+                const outerX = ((sensorDisplayWidthPx - Math.max(1, outerSizePx)) / 2);
+                const outerY = ((sensorDisplayHeightPx - Math.max(1, outerSizePx)) / 2);
+
+                targetSquareSVG.setAttribute('width', sensorDisplayWidthPx);
+                targetSquareSVG.setAttribute('height', sensorDisplayHeightPx);
+                targetSquareOuter.setAttribute('width', Math.max(1, outerSizePx).toFixed(2));
+                targetSquareOuter.setAttribute('height', Math.max(1, outerSizePx).toFixed(2));
+                targetSquareOuter.setAttribute('x', outerX.toFixed(2));
+                targetSquareOuter.setAttribute('y', outerY.toFixed(2));
+                targetSquareInner.setAttribute('width', Math.max(0.5, innerSizePx).toFixed(2));
+                targetSquareInner.setAttribute('height', Math.max(0.5, innerSizePx).toFixed(2));
+                targetSquareInner.setAttribute('x', ((sensorDisplayWidthPx - Math.max(0.5, innerSizePx)) / 2).toFixed(2));
+                targetSquareInner.setAttribute('y', ((sensorDisplayHeightPx - Math.max(0.5, innerSizePx)) / 2).toFixed(2));
+
+                if (targetSquareText) {
+                    const fontSizeFor1mmText = Math.min(10, Math.max(6, Math.min(outerSizePx, sensorDisplayWidthPx) / 8));
+                    targetSquareText.setAttribute('font-size', fontSizeFor1mmText.toFixed(1));
+                    if (outerSizePx > 15) { // Only show text if square is reasonably large
+                        let textX = outerX + outerSizePx / 2;
+                        let textY = outerY - 3;
+                        let dominantBaseline = "text-after-edge";
+                        if (outerY < (fontSizeFor1mmText + 5)) {
+                            textY = fontSizeFor1mmText + 2;
+                            dominantBaseline = "hanging";
+                        }
+                        targetSquareText.setAttribute('x', textX.toFixed(2));
+                        targetSquareText.setAttribute('y', textY.toFixed(2));
+                        targetSquareText.setAttribute('dominant-baseline', dominantBaseline);
+                        targetSquareText.style.display = 'block';
+                    } else {
+                        targetSquareText.style.display = 'none';
+                    }
+                }
+            }
+        } else { // Camera Lens: show banana, quarter, rice
+            bananaImageSVG.style.display = 'block';
+            quarterImage.style.display = 'flex'; // Use flex for potential inner content centering
+            riceImage.style.display = 'block';
+
+            qDiaMm = QUARTER_DIAMETER_MM * currentMagnification; // Quarter diameter on sensor
+            quarterImage.style.width = `${Math.max(1, qDiaMm * pxPerMmSensor)}px`; quarterImage.style.height = `${Math.max(1, qDiaMm * pxPerMmSensor)}px`;
+            const rLpx = (RICE_LENGTH_MM * currentMagnification) * pxPerMmSensor, rWpx = (RICE_WIDTH_MM * currentMagnification) * pxPerMmSensor;
+            riceImage.style.width = `${Math.max(1, rWpx)}px`; riceImage.style.height = `${Math.max(1, rLpx)}px`;
+            // Example positioning for rice relative to quarter (adjust as needed)
+            riceImage.style.left = `50%`;
+            riceImage.style.top = `50%`;
+            riceImage.style.transform = `translate(-25%, 15%) rotate(10deg)`; // Offset and rotate slightly
+            bLsens = BANANA_LENGTH_MM * currentMagnification; // Banana length on sensor
+            bWsens = BANANA_WIDTH_MM * currentMagnification; // Banana width on sensor
+            const bSVGNatW = 767, bSVGNatH = 430; // Native SVG dimensions from viewBox
+            const bDispLpx = bLsens * pxPerMmSensor; // Displayed length in pixels
+            const svgSF = bSVGNatW > 0 && isFinite(bDispLpx) ? bDispLpx / bSVGNatW : 0; // Scale factor for SVG
+            bananaImageSVG.style.width = `${Math.max(1, bSVGNatW * svgSF)}px`; bananaImageSVG.style.height = `${Math.max(1, bSVGNatH * svgSF)}px`;
+        }
+
+
+        // Update Simulation Results Info Box (projected sizes)
+        let sysDispName = currentSystemData.systemName.replace(/\s*\(.*\)/, ''); // Shorter system name
+        let imageSizesHTML = "";
+
+        // Helper function to format projected sizes, handling N/A and unit conversion
+        const formatProjectedSize = (value, unit = 'mm', fixed = 2) => {
+            if ((!isMicroscopeObjectiveSelected && focusIsImpractical) || !isFinite(value)) {
+                return 'N/A';
+            }
+            if (unit === 'µm') {
+                return (value * 1000).toFixed(fixed) + 'µm';
+            }
+            return value.toFixed(fixed) + 'mm';
+        };
+        const formatProjectedArea = (val1, val2, unit1 = 'mm', unit2 = 'mm', fixed1 = 2, fixed2 = 2) => {
+             const displayVal1 = formatProjectedSize(val1, unit1, fixed1);
+             const displayVal2 = formatProjectedSize(val2, unit2, fixed2);
+             if (displayVal1 === 'N/A' || displayVal2 === 'N/A') return 'N/A';
+             return `${displayVal1} x ${displayVal2}`;
+        };
+
+
+        if (isMicroscopeObjectiveSelected) {
+            const outerProjected = TARGET_SQUARE_OUTER_MM * currentMagnification;
+            const innerProjected = (TARGET_SQUARE_INNER_UM / 1000) * currentMagnification; // µm to mm
+            const tardigradeLengthProjected = TARDIGRADE_LENGTH_MM * currentMagnification;
+            const tardigradeWidthProjected = TARDIGRADE_WIDTH_MM * currentMagnification;
+            const riceLengthProjected = RICE_LENGTH_MM * currentMagnification;
+            const riceWidthProjected = RICE_WIDTH_MM * currentMagnification;
+
+            if (currentMagnification >= 10) {
+                 imageSizesHTML = `
+                    <div class="info-line flex justify-between py-1"><span>Tardigrade Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(tardigradeLengthProjected, tardigradeWidthProjected, 'mm', 'mm', 2, 2)}</span></div>
+                    <div class="info-line flex justify-between py-1"><span>Rice Grain Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(riceLengthProjected, riceWidthProjected, 'mm', 'mm', 2, 2)}</span></div>
+                `;
+            } else {
+                imageSizesHTML = `
+                    <div class="info-line flex justify-between py-1"><span>1mm Target on Sensor:</span> <span class="font-medium">${formatProjectedArea(outerProjected, outerProjected, 'mm', 'mm', 2, 2)}</span></div>
+                    <div class="info-line flex justify-between py-1"><span>1µm Target (center) on Sensor:</span> <span class="font-medium">${formatProjectedArea(innerProjected * 1000, innerProjected * 1000, 'µm', 'µm', 1, 1)}</span></div>
+                    <div class="info-line flex justify-between py-1"><span>Rice Grain Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(riceLengthProjected, riceWidthProjected, 'mm', 'mm', 2, 2)}</span></div>
+                `;
+            }
+        } else { // Camera Lens
+            imageSizesHTML = `
+                <div class="info-line flex justify-between py-1"><span>Banana Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(bLsens, bWsens, 'mm', 'mm', 1, 1)}</span></div>
+                <div class="info-line flex justify-between py-1"><span>Quarter Image on Sensor:</span> <span class="font-medium">${formatProjectedSize(qDiaMm, 'mm', 2)} ø</span></div>
+                <div class="info-line flex justify-between py-1"><span>Rice Grain Image on Sensor:</span> <span class="font-medium">${formatProjectedArea(RICE_LENGTH_MM * currentMagnification, RICE_WIDTH_MM * currentMagnification, 'mm', 'mm', 2, 2)}</span></div>
+            `;
+             if (!focusIsImpractical && isFinite(bLsens) && (bLsens > Math.max(SENSOR_WIDTH_MM, SENSOR_HEIGHT_MM) || bWsens > Math.min(SENSOR_WIDTH_MM, SENSOR_HEIGHT_MM))) imageSizesHTML += `<p class="text-orange-600 font-semibold mt-1 py-1">Note: Banana image likely exceeds sensor dimensions.</p>`;
+             else if (!focusIsImpractical && isFinite(qDiaMm) && (qDiaMm > SENSOR_HEIGHT_MM || qDiaMm > SENSOR_WIDTH_MM)) imageSizesHTML += `<p class="text-orange-600 font-semibold mt-1 py-1">Note: Quarter image exceeds sensor dimensions.</p>`;
+        }
+        imageSizesHTML += `<p class="text-xs text-slate-500 mt-1 py-1">Sensor (${sysDispName}): ${SENSOR_WIDTH_MM}mm x ${SENSOR_HEIGHT_MM}mm</p>`;
+        imageSizesHTML += vignettingNote; // Add vignetting note if applicable
+
+
+        simulationResultsInfo.innerHTML = ``; // Clear previous
+        if (!isMicroscopeObjectiveSelected && currentLensData && currentLensData.NM !== undefined && approxNativeObjectDistance !== null) {
+             simulationResultsInfo.innerHTML += `
+                <div class="info-line flex justify-between items-center py-1"><span>Native Magnification (Lens): ${createInfoTooltip("The lens's own maximum magnification at its MFD, without accessories.")}</span> <strong class="text-indigo-700">${(currentLensData.NM || 0).toFixed(2)}x</strong></div>
+                <div class="info-line flex justify-between items-center py-1"><span>Approx. Native Object Dist (P.P.): ${createInfoTooltip("Approx. distance from lens principal point to subject for native max magnification.")}</span> <strong class="text-indigo-700">${approxNativeObjectDistance === Infinity ? "∞" : (approxNativeObjectDistance || 0).toFixed(0) + 'mm'}</strong></div>`;
+        }
+        simulationResultsInfo.innerHTML += `<h4 class="font-semibold text-slate-700 mt-2 mb-1 py-1 ${!isMicroscopeObjectiveSelected ? 'border-t border-slate-200 pt-2' : ''}">Simulated Image Sizes on Sensor:</h4>${imageSizesHTML}`;
+
+        // Update Resolution Details Info Box
+        let resolutionHTML = "";
+        let blockResolutionCalculations = false;
+        let resolutionBlockReason = "";
+
+        if (!selectedSensorMP || selectedSensorMP <= 0) {
+            blockResolutionCalculations = true;
+            resolutionBlockReason = "Sensor resolution not validly selected.";
+        } else if (currentMagnification <= 0) {
+            blockResolutionCalculations = true;
+            resolutionBlockReason = "Magnification is zero or negative.";
+        } else if (!isMicroscopeObjectiveSelected) { // Additional checks specific to camera lenses
+            if (!shootingApertureVal || shootingApertureVal <= 0) {
+                blockResolutionCalculations = true;
+                resolutionBlockReason = "Shooting aperture not valid for camera lens.";
+            } else if (focusIsImpractical) {
+                blockResolutionCalculations = true;
+                resolutionBlockReason = "Focus is impractical for the selected camera lens setup (working distance or object distance too small).";
+            }
+        }
+        // For MOs, focusIsImpractical (due to WD < MIN_PRACTICAL_WORKING_DISTANCE) does NOT block calculations here.
+
+        if (blockResolutionCalculations) {
+            resolutionHTML = `<p class="text-slate-500 italic">Resolution, DOF & WD analysis cannot be performed. ${resolutionBlockReason}</p>`;
+        } else {
+            const effectiveApertureForCalc = isMicroscopeObjectiveSelected ? currentMagnification / (2 * (currentLensData.NA || 0.1)) : shootingApertureVal * (1 + currentMagnification);
+            const diffractionLimit_lp_mm = effectiveApertureForCalc > 0 ? 1500 / effectiveApertureForCalc : 0; // Using 1500 for green light approx.
+            const aspectRatio = SENSOR_WIDTH_MM > 0 && SENSOR_HEIGHT_MM > 0 ? SENSOR_WIDTH_MM / SENSOR_HEIGHT_MM : 1.5; // Default 3:2
+            const horizontalPixels = Math.sqrt(selectedSensorMP * 1000000 * aspectRatio);
+            const pixelPitch_microns = (SENSOR_WIDTH_MM > 0 && horizontalPixels > 0) ? (SENSOR_WIDTH_MM / horizontalPixels) * 1000 : 0;
+            const pixelPitch_mm = pixelPitch_microns / 1000;
+            const sensorLimit_lp_mm = pixelPitch_microns > 0 ? 500 / pixelPitch_microns : 0; // Nyquist limit: 1000 / (2 * pitch_microns)
+
+            // Depth of Field (DOF) calculation for macro: DOF ≈ 2 * N_eff * CoC / M^2
+            const coc_mm = 2 * pixelPitch_mm; // CoC often taken as 2x pixel pitch
+            let dof_mm = 0;
+            if (currentMagnification > 0 && effectiveApertureForCalc > 0 && coc_mm > 0) {
+                 dof_mm = (2 * effectiveApertureForCalc * coc_mm) / (currentMagnification * currentMagnification);
+            }
+
+            // Effective System Resolution (limited by the weakest link: lens, diffraction, or sensor)
+            let effectiveSystemResolution_lp_mm; let limitingFactor;
+            let lensResForCalc = isMicroscopeObjectiveSelected ? currentLensData.theoretical_lp_mm_sensor : currentLensData.lensResolution_lp_mm;
+
+            let validResolutions = [];
+            if (lensResForCalc !== null && lensResForCalc > 0) validResolutions.push({ name: isMicroscopeObjectiveSelected ? 'Objective (Theoretical)' : 'Lens (Est.)', value: lensResForCalc });
+            if (diffractionLimit_lp_mm > 0) validResolutions.push({ name: 'Diffraction', value: diffractionLimit_lp_mm });
+            if (sensorLimit_lp_mm > 0) validResolutions.push({ name: 'Sensor', value: sensorLimit_lp_mm });
+
+            if (validResolutions.length > 0) {
+                validResolutions.sort((a, b) => a.value - b.value); // Sort by resolution value, lowest is limiting
+                effectiveSystemResolution_lp_mm = validResolutions[0].value; limitingFactor = validResolutions[0].name;
+            } else { effectiveSystemResolution_lp_mm = 0; limitingFactor = "Data Error"; }
+
+            // Qualitative description of detail
+            let qualDesc = '';
+            if (effectiveSystemResolution_lp_mm >= 70) qualDesc = "Excellent detail potential";
+            else if (effectiveSystemResolution_lp_mm >= 50) qualDesc = "Very good detail potential";
+            else if (effectiveSystemResolution_lp_mm >= 30) qualDesc = "Good detail potential";
+            else if (effectiveSystemResolution_lp_mm >= 15) qualDesc = "Moderate detail, may appear somewhat soft";
+            else qualDesc = "Soft detail expected";
+
+            if (isMicroscopeObjectiveSelected) {
+                qualDesc += ` (Limited by ${limitingFactor}). Field flatness: ${currentLensData.isPlan ? 'Good (Plan)' : 'Curvature expected (Achromat)'}.`;
+            } else if (currentAccessoryData.type === 'reversal' && currentLensData.suitabilityManualReversalRating && currentLensData.suitabilityManualReversalRating.toLowerCase() !== 'good' && currentLensData.suitabilityManualReversalRating.toLowerCase() !== 'excellent') {
+                qualDesc += ` (Reversed lens quality: ${currentLensData.suitabilityManualReversalRating} - this may override theoretical limits).`;
+            } else { qualDesc += ` (Theoretically limited by ${limitingFactor}).`; }
+
+            // Highlight calculated magnification and effective aperture in the text
+            const isCalculatedValueForMagAndAperture = isMicroscopeObjectiveSelected || selectedAccessoryKey !== 'none' || (!isMicroscopeObjectiveSelected && currentLensData && currentMagnification.toFixed(3) !== (currentLensData.NM || 0).toFixed(3));
+            const achMagSpanClass = isCalculatedValueForMagAndAperture ? 'text-indigo-600 font-semibold' : '';
+            const achMagText = `<span class="${achMagSpanClass}">${currentMagnification.toFixed(isMicroscopeObjectiveSelected ? 1 : 3)}x</span>`;
+            const effApertureSpanClass = isCalculatedValueForMagAndAperture ? 'text-indigo-600 font-semibold' : '';
+            const effApertureText = `<span class="${effApertureSpanClass}">${effectiveApertureForCalc.toFixed(1)}</span>`;
+
+            let objectiveSpecificNotesHTML = '';
+            if(isMicroscopeObjectiveSelected) {
+                objectiveSpecificNotesHTML = `<div class="mt-2 p-2 text-xs bg-sky-50 border border-sky-200 rounded-md text-sky-700">
+                    <strong>Objective Details:</strong> Type: ${currentLensData.isPlan ? 'Plan Achromat' : 'Standard Achromat'}.
+                    Field Flatness: ${currentLensData.isPlan ? 'Good across image circle.' : 'Significant field curvature expected.'}
+                    Theoretical Resolution (central, $\\lambda$=550nm): ${(currentLensData.theoretical_lp_mm_sensor || 0).toFixed(1)} lp/mm on sensor.
+                    (Source: ${currentLensData.sourceRef || 'Generic Data'})
+                    Some residual chromatic aberration may be present.`;
+                if (focusIsImpractical) { // focusIsImpractical is true if WD_obj_mm < MIN_PRACTICAL_WORKING_DISTANCE
+                    objectiveSpecificNotesHTML += `<br/><strong>Warning:</strong> Working distance (${(currentLensData.WD_obj_mm || 0).toFixed(2)}mm) is very small. Calculations are theoretical.`;
+                }
+                objectiveSpecificNotesHTML += `</div>`;
+            }
+
+            resolutionHTML = `
+                <div class="info-line flex justify-between items-center py-1"><span>Effective Resolution (Sensor): ${createInfoTooltip("The estimated maximum detail the entire system (lens/objective, diffraction, sensor) can resolve on the sensor, in line pairs per millimeter (lp/mm). Higher is better.")}</span> <span class="text-indigo-700 font-bold">${effectiveSystemResolution_lp_mm.toFixed(1)}</span> lp/mm</div>
+                <div class="info-line flex justify-between items-center py-1"><span>Limiting Factor: ${createInfoTooltip("The primary component that restricts the overall system resolution.")}</span> <span class="text-indigo-700 font-semibold">${limitingFactor}</span></div>
+
+                <h4 class="font-semibold text-slate-700 mt-3 mb-1 py-1 border-t border-slate-200 pt-2">Depth of Field (DOF):</h4>
+                <div class="info-line flex justify-between items-center py-1"><span>Approx. Total DOF: ${createInfoTooltip("Approximate total depth perceived as acceptably sharp at the subject. DOF in macro is typically very shallow.")}</span> <strong class="text-indigo-700">${dof_mm > 0 ? dof_mm.toFixed(3) + ' mm' : 'N/A (e.g. M=0)'}</strong></div>
+                <div class="info-line flex justify-between items-center py-1 text-xs text-slate-600"><span>CoC Used: ${createInfoTooltip("Circle of Confusion: The maximum blur spot size on the sensor still perceived as sharp. Calculated here as 2x pixel pitch.")}</span> <span>${coc_mm > 0 ? coc_mm.toExponential(2) : 'N/A'} mm</span></div>
+
+
+                <h4 class="font-semibold text-slate-700 mt-3 mb-1 py-1 border-t border-slate-200 pt-2">Key Optical Factors:</h4>
+                <div class="info-line flex justify-between items-center py-1 pl-2"><span>${isMicroscopeObjectiveSelected ? 'Objective Resolution (Theoretical)' : 'Lens Resolution (Estimated)'}: ${createInfoTooltip(isMicroscopeObjectiveSelected ? "Theoretical central resolving power of the objective projected onto the sensor (at $\\lambda$=550nm)." : "An illustrative estimate of the lens's own resolving power in lp/mm. 'N/A' if specific data is unavailable or not applicable. Actual lens performance varies.")}</span> <span class="font-medium">${lensResForCalc !== null ? lensResForCalc.toFixed(1) : 'N/A'} lp/mm</span></div>
+                <div class="info-line flex justify-between items-center py-1 pl-2"><span>Diffraction Limit (at f/${effApertureText}): ${createInfoTooltip("The theoretical resolution limit imposed by diffraction due to the effective aperture (Shooting Aperture × (1 + Magnification) for camera lenses, or M_obj / (2*NA) for microscope objectives). Smaller effective apertures (larger f-numbers) lead to more diffraction.")}</span> <span class="font-medium">${diffractionLimit_lp_mm > 0 ? diffractionLimit_lp_mm.toFixed(1) : 'N/A'} lp/mm</span></div>
+                <div class="info-line flex justify-between items-center py-1 pl-2"><span>Sensor Limit (${pixelPitch_microns.toFixed(1)}µm pixels): ${createInfoTooltip("The theoretical resolution limit of the sensor based on its pixel density (Nyquist frequency). Smaller pixels (higher density) allow for higher potential resolution.")}</span> <span class="font-medium">${sensorLimit_lp_mm > 0 ? sensorLimit_lp_mm.toFixed(1) : 'N/A'} lp/mm</span></div>
+                <div class="info-line flex justify-between items-center py-1"><span>Achievable Magnification: ${createInfoTooltip("The current magnification of the subject on the sensor with the selected lens/objective and accessories.")}</span> ${achMagText}</div>
+                <div class="info-line py-1"><span>Qualitative Detail Potential:</span> <span class="font-medium">${qualDesc}</span></div>
+                ${reversalSpecificNotesHTML}
+                ${objectiveSpecificNotesHTML}
+                <p class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">Note: Resolution, DOF & WD analyses provide theoretical estimates. Real-world factors also affect perceived sharpness and depth.</p>`;
+        }
+        resolutionDetailsInfo.innerHTML = resolutionHTML;
+    }
+
+    // Event Listeners Setup
+    document.addEventListener('DOMContentLoaded', () => {
+        sensorResolutionSelect.dataset.userSet = "false"; // Initialize flag
+        sensorResolutionSelect.addEventListener('change', () => {
+            sensorResolutionSelect.dataset.userSet = "true"; // Mark as user-set
+            updateVisualization();
+        });
+
+        populateSystemDropdown();
+        populateLensDropdown(''); // Initial call with no system selected
+        populateAccessoryDropdown();
+        updateVisualization(); // Initial call to set up the UI
+
+        systemSelect.addEventListener('change', (event) => {
+            sensorResolutionSelect.dataset.userSet = "false"; // Reset flag when system changes
+            populateLensDropdown(event.target.value);
+        });
+        lensSelect.addEventListener('change', updateVisualization);
+        accessorySelect.addEventListener('change', updateVisualization);
+        shootingApertureInput.addEventListener('change', updateVisualization);
+        window.addEventListener('resize', updateVisualization); // Recalculate on resize for responsive display
+    });
+</script>
+</body>
+</html>
