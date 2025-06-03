@@ -151,7 +151,7 @@ const RICE_WIDTH_MM = 1.5;
 const BANANA_LENGTH_MM = 180;
 const BANANA_WIDTH_MM = 35;
 const TARGET_SQUARE_OUTER_MM = 1.0;
-// TARGET_SQUARE_INNER_UM removed as per user request
+const TARGET_SQUARE_INNER_UM = 1.0;
 const TARDIGRADE_LENGTH_MM = 0.4;
 const TARDIGRADE_WIDTH_MM = TARDIGRADE_LENGTH_MM * (200/160); // Based on tardigrade SVG viewBox aspect ratio
 
