@@ -505,7 +505,7 @@
                                  <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                              </button>
                              <div class="mt-3 bg-gray-100 p-3 border-l-4 border-black text-xs text-gray-600">
-                                 <strong>Step 2:</strong> On the next screen, please manually enter <strong>$<span id="manual-price-hint">0</span></strong> in the "Name a fair price" box.
+                                 <strong>Step 2:</strong> On the next screen, you may be required to manually enter <strong>$<span id="manual-price-hint">0</span></strong> in the "Name a fair price" box.
                              </div>
                          </div>
                          <!-- 
@@ -605,8 +605,58 @@
     </div>
 
 <script>
+        // =================================================================
+        // MASTER CONFIGURATION (SINGLE SOURCE OF TRUTH)
+        // Edit your prices and links here. The rest of the code will adapt.
+        // =================================================================
+        const PRICE_LADDER = {
+            // AUTOMATIC TIERS (High Precision)
+            50: "https://voshart.lemonsqueezy.com/checkout/buy/e71296f6-8a67-4d27-b692-a5ce530f1bab?discount=0&enabled=1230851", 
+            55: "https://voshart.lemonsqueezy.com/checkout/buy/cf774aa1-001c-4377-ab3c-579660cf674c?discount=0&enabled=1230818",
+            60: "https://voshart.lemonsqueezy.com/checkout/buy/251f1f15-a72e-4e2b-832e-579660cf674c?discount=0&enabled=1230820",
+            65: "https://voshart.lemonsqueezy.com/checkout/buy/de2e1dc1-fe76-4225-b45d-1e779245e944?discount=0&enabled=1230822",
+            70: "https://voshart.lemonsqueezy.com/checkout/buy/c457a1b9-44a2-4bab-a624-9e7ad4fdc2a5?discount=0&enabled=1230823",
+            75: "https://voshart.lemonsqueezy.com/checkout/buy/1b2f7e84-1a59-4902-a94d-f4d2bc6ae019?discount=0&enabled=1230833",
+            80: "https://voshart.lemonsqueezy.com/checkout/buy/63182925-20a3-452a-a81b-699326a7f19a?discount=0&enabled=1230852",
+            85: "https://voshart.lemonsqueezy.com/checkout/buy/08eb3898-1145-4ec5-a3bf-7af2e6b20298?discount=0&enabled=1230854",
+            90: "https://voshart.lemonsqueezy.com/checkout/buy/af351051-1868-4e1d-a169-78965cf43aa0?discount=0&enabled=1230855",
+            95: "https://voshart.lemonsqueezy.com/checkout/buy/0050f944-fc1d-4939-9a32-0d138a3bff43?discount=0&enabled=1230856",
+            
+            // MANUAL TIERS (Fallback Links)
+            100: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            110: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            120: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            130: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            140: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            150: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            160: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            170: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            180: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            190: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            200: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            
+            225: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            250: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            275: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            300: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            350: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0",
+            400: "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559?discount=0"
+        };
+
+
         // GLOBAL VAR TO STORE CURRENT PRICE
         let currentLicenseFee = 0;
+
+        // --- HELPER: FIND CLOSEST TIER ---
+        // This is the "Brain" that ensures Math & Checkout always match
+        function getSnappedPrice(rawPrice) {
+            const tiers = Object.keys(PRICE_LADDER).map(Number).sort((a, b) => a - b);
+            const closest = tiers.reduce((prev, curr) => {
+                return (Math.abs(curr - rawPrice) < Math.abs(prev - rawPrice) ? curr : prev);
+            });
+            return closest;
+        }
+
 
         // --- INPUT HANDLERS ---
         function setType(val) {
@@ -619,12 +669,10 @@
             document.getElementById('input-placement').value = val;
             updateButtonState('place-btn', val);
             
-            // Toggle Visibility
             const isCover = val === 'cover';
             document.getElementById('section-cover').classList.toggle('hidden', !isCover);
             document.getElementById('section-interior').classList.toggle('hidden', isCover);
             
-            // Toggle Results breakdown rows
             document.getElementById('row-circ').classList.toggle('hidden', !isCover);
             document.getElementById('row-edition').classList.toggle('hidden', isCover);
             
@@ -647,7 +695,6 @@
             const input = document.getElementById(`input-${id}`);
             input.checked = !input.checked;
             
-            // Update UI Style
             const box = document.getElementById(`chk-${id}`);
             const icon = document.getElementById(`icon-${id}`);
             
@@ -727,7 +774,6 @@
             }
         }
 
-        // --- UI HELPERS ---
         function toggleTooltip(id) {
             const tooltips = document.getElementsByClassName('tooltip-content');
             for (let t of tooltips) {
@@ -758,7 +804,7 @@
 
         function toggleCheckout() {
             const isChecked = document.getElementById('terms-check').checked;
-            const isSaved = document.getElementById('save-check').checked;
+            const isSaved = document.getElementById('save-check') ? document.getElementById('save-check').checked : true;
             const btnContainer = document.getElementById('checkout-button-container');
             const debugContainer = document.getElementById('debug-url-container');
             
@@ -813,45 +859,33 @@
 
             const AGENCY_BASE_PRICE = 680;
 
-            // 1. Placement
             let placementFactor = 1.0;
             if (inputs.placement === 'interior') {
                 placementFactor = inputs.type === 'textbook' ? 0.52 : 0.49;
             }
 
-            // 2. Size
             let sizeFactor = 1.0;
             const sizeMapTextbook = { '1+': 1.162, '1': 1.0, '0.5': 0.73, '0.25': 0.69, '0.175': 0.63 };
             const sizeMapRetail = { '1+': 1.162, '1': 1.0, '0.5': 0.76, '0.25': 0.72, '0.175': 0.66 };
             const sizeLabelMap = { '1+': 'Wraparound', '1': 'Full Page', '0.5': '1/2 Page', '0.25': '1/4 Page', '0.175': '1/8 Page' };
-            
-            sizeFactor = inputs.type === 'textbook' 
-                ? (sizeMapTextbook[inputs.size] || 1.0) 
-                : (sizeMapRetail[inputs.size] || 1.0);
+            sizeFactor = inputs.type === 'textbook' ? (sizeMapTextbook[inputs.size] || 1.0) : (sizeMapRetail[inputs.size] || 1.0);
 
-            // 3. Circulation
             let circFactor = 1.0;
             const circMapTextbook = { '5000': 1.0, '10000': 1.05, '25000': 1.10, '50000': 1.20 };
             const circMapRetail = { '5000': 1.0, '10000': 1.05, '25000': 1.10, '50000': 1.25 };
             const circLabelMap = { '5000': 'Up to 5,000', '10000': 'Up to 10,000', '25000': 'Up to 25,000', '50000': 'Up to 50,000' };
-
             if (inputs.placement === 'cover') {
-                circFactor = inputs.type === 'textbook'
-                    ? (circMapTextbook[inputs.circulation] || 1.0)
-                    : (circMapRetail[inputs.circulation] || 1.0);
+                circFactor = inputs.type === 'textbook' ? (circMapTextbook[inputs.circulation] || 1.0) : (circMapRetail[inputs.circulation] || 1.0);
             }
 
-            // 4. Renewal
             let renewalFactor = 1.0;
             if (inputs.placement === 'interior' && inputs.edition === 'subsequent') {
                 renewalFactor = inputs.type === 'textbook' ? 0.63 : 0.81;
             }
 
-            // 5. Duration
             const durationMap = { '10': 1.0, '7': 0.9, '5': 0.8 };
             const durationFactor = durationMap[inputs.duration] || 1.0;
 
-            // --- FEES ---
             const agencyPrintBase = AGENCY_BASE_PRICE * placementFactor * sizeFactor * circFactor * durationFactor * renewalFactor;
             let agencyDigitalTotal = 0;
             
@@ -871,18 +905,20 @@
             const agencyTotal = Math.round(agencyTotalRaw / 5) * 5; 
             const userPrintBase = agencyPrintBase / 4;
             const userTotalRaw = agencyTotalRaw / 4;
-            const userTotal = Math.max(50, Math.round(userTotalRaw));
             
-            // UPDATE GLOBAL
-            currentLicenseFee = userTotal;
+            // --- SNAP PRICE USING GLOBAL CONFIG ---
+            // 1. Calculate min raw
+            let calculated = Math.max(50, userTotalRaw);
+            
+            // 2. Snap using the helper function
+            currentLicenseFee = getSnappedPrice(calculated);
+            // --------------------------------------
 
-            // --- DISPLAY ---
-            document.getElementById('display-price').innerText = userTotal.toLocaleString();
+            document.getElementById('display-price').innerText = currentLicenseFee.toLocaleString();
             document.getElementById('display-agency-rate').innerText = agencyTotal.toLocaleString();
             document.getElementById('display-print-subtotal').innerText = Math.round(userPrintBase).toLocaleString();
             document.getElementById('display-digital-addon').innerText = Math.round(userTotalRaw - userPrintBase).toLocaleString();
             
-            // TEXT UPDATES
             document.getElementById('txt-placement').innerText = inputs.placement.charAt(0).toUpperCase() + inputs.placement.slice(1);
             document.getElementById('factor-placement').innerText = placementFactor;
             document.getElementById('txt-size').innerText = sizeLabelMap[inputs.size];
@@ -894,7 +930,6 @@
             document.getElementById('txt-edition').innerText = inputs.edition.charAt(0).toUpperCase() + inputs.edition.slice(1);
             document.getElementById('factor-edition').innerText = renewalFactor;
 
-            // --- INVOICE SECTION ---
             updateDate();
             document.getElementById('inv-type').innerText = inputs.type.charAt(0).toUpperCase() + inputs.type.slice(1);
             document.getElementById('inv-placement').innerText = inputs.placement.charAt(0).toUpperCase() + inputs.placement.slice(1);
@@ -919,64 +954,75 @@
 
             document.getElementById('inv-subtotal').innerText = "$" + Math.round(userPrintBase).toLocaleString();
             document.getElementById('inv-digital-cost').innerText = "$" + Math.round(userTotalRaw - userPrintBase).toLocaleString();
-            document.getElementById('inv-total').innerText = "$" + userTotal.toLocaleString();
+            document.getElementById('inv-total').innerText = "$" + currentLicenseFee.toLocaleString();
             document.getElementById('inv-agency').innerText = agencyTotal.toLocaleString();
             
-            // --- UPDATE BUTTON & HASH ---
-            document.getElementById('manual-price-hint').innerText = userTotal.toLocaleString();
+            // --- UPDATE BUTTON & UI ---
+            document.getElementById('manual-price-hint').innerText = currentLicenseFee.toLocaleString();
             const btnDynamic = document.getElementById('btn-checkout-dynamic');
             if (btnDynamic) {
-                // FORCE BLACK BUTTON STYLE
                 btnDynamic.className = "w-full flex items-center justify-center px-4 py-4 text-sm font-bold uppercase tracking-widest text-white bg-black border border-black hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black";
-                
-                // UPDATED: Use Lock Icon instead of Arrow
-                btnDynamic.innerHTML = `Pay $${userTotal.toLocaleString()} <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`;
+                btnDynamic.innerHTML = `Pay $${currentLicenseFee.toLocaleString()} <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>`;
             }
 
             generateHash();
             updateDebugUrl();
         }
 
-        // --- CHECKOUT LOGIC (OVERLAY MODE) ---
-        function generateCheckoutUrl() {
-            const baseUrl = "https://voshart.lemonsqueezy.com/checkout/buy/0d6f9e1d-2280-48b9-95ed-4e6334ae2559"; 
+        // --- CHECKOUT LOGIC ---
+        function generateCheckoutUrl(openOverlay = false) {
+            // 1. LOOKUP URL FROM GLOBAL CONFIG
+            // We already have 'currentLicenseFee' which is snapped.
+            // But just to be safe, we re-snap (or just lookup directly).
+            
+            let bestUrl = PRICE_LADDER[currentLicenseFee];
+            
+            // Fallback: If for some reason the price isn't in the map (bug), find closest
+            if (!bestUrl) {
+                const closest = getSnappedPrice(currentLicenseFee);
+                bestUrl = PRICE_LADDER[closest];
+            }
 
-            // 1. Human Readable
+            // 2. ATTACH DATA
             const type = document.getElementById('input-type').value;
             const place = document.getElementById('input-placement').value;
             const duration = document.getElementById('input-duration').value + " Years";
             const size = document.getElementById('input-size').value;
-            
-            // 2. Admin Hash (Clean)
             const hashRaw = document.getElementById('inv-admin-hash').innerText;
             const hashClean = hashRaw.replace('REF: ', '');
-
-            // 3. Details String
+            
             const desc = `AGREED RATE: $${currentLicenseFee} -- ${type} / ${place} / ${size} / ${duration}`;
             
-            // 4. Build Secure URL
+            // 3. ACTION
+            if (window.LemonSqueezy && openOverlay) {
+                window.LemonSqueezy.Url.Open(bestUrl, {
+                    checkoutData: {
+                        custom: {
+                            license_details: desc,
+                            ref_id: hashClean
+                        }
+                    }
+                });
+                return bestUrl; 
+            } 
+            
+            // Debug Text
             const params = new URLSearchParams();
             params.append('checkout[custom][license_details]', desc);
             params.append('checkout[custom][ref_id]', hashClean);
             
-            return `${baseUrl}?${params.toString()}`;
+            const separator = bestUrl.includes('?') ? '&' : '?';
+            return `${bestUrl}${separator}${params.toString()}`;
         }
 
         function updateDebugUrl() {
-            const url = generateCheckoutUrl();
+            const url = generateCheckoutUrl(false);
             const debugEl = document.getElementById('debug-url-text');
             if(debugEl) debugEl.innerText = url;
         }
 
         function goToCheckout() {
-            const url = generateCheckoutUrl();
-            if (window.LemonSqueezy) {
-                // USE POPUP
-                window.LemonSqueezy.Url.Open(url);
-            } else {
-                // FALLBACK
-                window.location.href = url;
-            }
+            generateCheckoutUrl(true);
         }
 
         // Start
