@@ -967,6 +967,7 @@
 
             generateHash();
             updateDebugUrl();
+            updateURLState();
         }
 
         // --- CHECKOUT LOGIC ---
@@ -1025,8 +1026,82 @@
             generateCheckoutUrl(true);
         }
 
-        // Start
-        calculate();
+        function updateURLState() {
+            // 1. Grab all current values
+            const params = new URLSearchParams();
+            
+            // Core inputs
+            params.set('type', document.getElementById('input-type').value);
+            params.set('place', document.getElementById('input-placement').value);
+            params.set('dur', document.getElementById('input-duration').value);
+            params.set('size', document.getElementById('input-size').value);
+            params.set('circ', document.getElementById('input-circulation').value);
+            params.set('ed', document.getElementById('input-edition').value);
+            
+            // Checkboxes (only save if true to keep URL clean)
+            if(document.getElementById('input-electronic').checked) params.set('elec', '1');
+            if(document.getElementById('input-social').checked) params.set('soc', '1');
+            
+            // Reference text (optional, but useful for saving "Project Name")
+            const ref = document.getElementById('input-ref-desc').value;
+            if(ref) params.set('ref', ref);
+
+            // 2. Update the browser URL without reloading
+            const newUrl = window.location.pathname + '?' + params.toString();
+            window.history.replaceState(null, '', newUrl);
+        }
+
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            
+            // If no params exist, just run default calculation and exit
+            if (!params.has('type')) {
+                calculate();
+                return;
+            }
+
+            // Helper to safely set values if they exist
+            const val = (key) => params.get(key);
+
+            // 1. Restore Button Selections (Type, Placement, etc.)
+            // We use your existing functions (setType, setPlacement) because they
+            // handle the visual button highlighting and section hiding/showing for us.
+            if (val('type')) setType(val('type'));
+            if (val('place')) setPlacement(val('place'));
+            if (val('size')) setSize(val('size'));
+            if (val('ed')) setEdition(val('ed'));
+
+            // 2. Restore Dropdowns
+            if (val('dur')) document.getElementById('input-duration').value = val('dur');
+            if (val('circ')) document.getElementById('input-circulation').value = val('circ');
+
+            // 3. Restore Checkboxes
+            // We manually trigger the click logic if the URL says it should be checked
+            // but the checkbox is currently empty.
+            const elecParam = val('elec') === '1';
+            const socParam = val('soc') === '1';
+            const currentElec = document.getElementById('input-electronic').checked;
+            const currentSoc = document.getElementById('input-social').checked;
+
+            if (elecParam !== currentElec) toggleDigital('electronic');
+            if (socParam !== currentSoc) toggleDigital('social');
+
+            // 4. Restore Reference Text
+            if (val('ref')) {
+                document.getElementById('input-ref-desc').value = val('ref');
+                // If there is ref text, we probably want to open the reference section
+                if (!document.getElementById('input-reference-toggle').checked) {
+                    toggleReference();
+                }
+                updateRef(); // Updates the preview text
+            }
+
+            // Finally, calculate the price with these new settings
+            calculate();
+        }
+
+        // CALL THIS AT THE END OF YOUR SCRIPT INSTEAD OF Just calculate()
+        loadFromURL();
 
     </script>
 </body>
